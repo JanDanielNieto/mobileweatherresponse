@@ -1,6 +1,7 @@
 import React from "react";
 
-export default function Weather() {
+// Accept the onSelectLocation prop
+export default function Weather({ onSelectLocation }) {
   const mockWeather = {
     location: "New York",
     temperature: 25,
@@ -11,38 +12,45 @@ export default function Weather() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-      <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-lg">
-        <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-          Weather Forecast
-        </h2>
-        <div className="space-y-4">
-          <div className="flex justify-between">
-            <span className="font-semibold text-gray-700">Location:</span>
-            <span className="text-gray-800">{mockWeather.location}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-semibold text-gray-700">Temperature:</span>
-            <span className="text-gray-800">{mockWeather.temperature}°C</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-semibold text-gray-700">Humidity:</span>
-            <span className="text-gray-800">{mockWeather.humidity}%</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-semibold text-gray-700">Condition:</span>
-            <span className="text-gray-800">{mockWeather.condition}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-semibold text-gray-700">AI Prediction:</span>
-            <span className="text-gray-800">{mockWeather.aiPrediction}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-semibold text-gray-700">Disaster Risk Score:</span>
-            <span className="text-gray-800">{mockWeather.riskScore}</span>
-          </div>
+    // Use relative positioning on the main container
+    <div className="w-full relative pb-16"> {/* Added relative and padding-bottom */}
+      <h2 className="text-3xl font-bold text-white mb-6 text-center">
+        Weather Forecast
+      </h2>
+      <div className="space-y-4 text-lg">
+        <div className="flex justify-between">
+          <span className="font-semibold text-gray-300">Location:</span>
+          <span className="text-gray-100">{mockWeather.location}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="font-semibold text-gray-300">Temperature:</span>
+          <span className="text-gray-100">{mockWeather.temperature}°C</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="font-semibold text-gray-300">Humidity:</span>
+          <span className="text-gray-100">{mockWeather.humidity}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="font-semibold text-gray-300">Condition:</span>
+          <span className="text-gray-100">{mockWeather.condition}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="font-semibold text-gray-300">AI Prediction:</span>
+          <span className="text-gray-100">{mockWeather.aiPrediction}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="font-semibold text-gray-300">Disaster Risk Score:</span>
+          <span className="text-gray-100">{mockWeather.riskScore}</span>
         </div>
       </div>
+
+      {/* Button positioned absolutely at the bottom right */}
+      <button
+        onClick={onSelectLocation} // Call the passed function on click
+        className="absolute bottom-0 right-0 bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 text-sm"
+      >
+        Select Location
+      </button>
     </div>
   );
 }
