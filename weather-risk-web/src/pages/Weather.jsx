@@ -1,15 +1,18 @@
 import React from "react";
+// Import the mock data from the mock folder
+import { mockWeather } from "../mock/weatherData.js";
 
 // Accept the onSelectLocation prop
 export default function Weather({ onSelectLocation }) {
-  const mockWeather = {
-    location: "New York",
-    temperature: 25,
-    humidity: 60,
-    condition: "Sunny",
-    aiPrediction: "Low Risk",
-    riskScore: 2,
-  };
+  // Remove the hardcoded mockWeather object
+  // const mockWeather = {
+  //   location: "New York",
+  //   temperature: 25,
+  //   humidity: 60,
+  //   condition: "Sunny",
+  //   aiPrediction: "Low Risk",
+  //   riskScore: 2,
+  // };
 
   return (
     // Use relative positioning on the main container
@@ -17,6 +20,7 @@ export default function Weather({ onSelectLocation }) {
       <h2 className="text-3xl font-bold text-white mb-6 text-center">
         Weather Forecast
       </h2>
+      {/* The JSX below will now use the imported mockWeather object */}
       <div className="space-y-4 text-lg">
         <div className="flex justify-between">
           <span className="font-semibold text-gray-300">Location:</span>
