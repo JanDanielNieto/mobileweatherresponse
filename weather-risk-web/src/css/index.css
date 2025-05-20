@@ -4,13 +4,12 @@
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
   color-scheme: light dark;
 
-  /* --- RESTORE ORIGINAL DARK THEME COLORS --- */
+  /* --- DEFAULT DARK THEME COLORS --- */
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
-  /* --- END RESTORE --- */
+  /* --- END DEFAULT --- */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -20,32 +19,23 @@
 
 a {
   font-weight: 500;
-  /* Use Tailwind blue for links in light mode, keep default for dark */
-  @apply text-blue-600 dark:text-blue-400;
+  /* Let utilities in components handle link colors based on theme */
+  /* color: #646cff; */
   text-decoration: inherit;
 }
-a:hover {
-   /* Use Tailwind blue for links in light mode, keep default for dark */
-  @apply text-blue-800 dark:text-blue-300;
-}
+/* a:hover { ... } */
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-
-  /* --- DEFINE LIGHT THEME (BLUE) AS DEFAULT, DARK THEME AS VARIANT --- */
-  /* Light Theme (Default): Light blue background, dark blue text */
-  /* Dark Theme (Variant): Original :root colors */
-  @apply bg-blue-50 text-blue-900 dark:bg-[#242424] dark:text-[rgba(255,255,255,0.87)] transition-colors duration-300;
-  /* --- END THEME DEFINITION --- */
+  /* REMOVE @apply rules - theme will be applied in App.jsx */
 }
 
 h1 {
-  /* Adjust heading color for light theme */
-  @apply text-blue-950 dark:text-[rgba(255,255,255,0.87)];
-  font-size: 3.2em; /* Keep original size */
-  line-height: 1.1; /* Keep original line-height */
+  /* REMOVE @apply rules - use classes in components */
+  font-size: 3.2em;
+  line-height: 1.1;
 }
 
 button {
@@ -56,17 +46,11 @@ button {
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  transition: border-color 0.25s, background-color 0.25s, color 0.25s; /* Added transitions */
-
-  /* Define base button styles for light theme, override for dark */
-  /* Example: Blue button for light, dark gray for dark */
-  /* NOTE: Specific button styles in components will override this */
-   @apply bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-600;
-
+  transition: border-color 0.25s, background-color 0.25s, color 0.25s;
+  /* REMOVE base @apply rules - style buttons in components */
 }
 
-
-/* Keep the animation styles */
+/* Keep animations */
 @layer utilities {
   @keyframes fadeIn {
     from { opacity: 0; }
