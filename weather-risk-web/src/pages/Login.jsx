@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import FeaturesSlideshow from '../components/FeaturesSlideshow'; // Corrected import name
+import FeaturesSlideshow from '../components/FeaturesSlideshow';
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState("");
@@ -21,7 +21,8 @@ export default function Login({ onLogin }) {
     <div className="min-h-screen flex">
       {/* Left Column - Login Form */}
       <div className="w-1/3 bg-gray-100 flex items-center justify-center p-8">
-        <div className="bg-white p-8 rounded shadow-md w-full max-w-sm"> {/* Adjusted width */}
+        <div className="bg-white p-8 rounded shadow-md w-full max-w-sm">
+          {/* This should be correct */}
           <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Login</h1>
           <input
             type="text"
@@ -38,7 +39,7 @@ export default function Login({ onLogin }) {
             onChange={(e) => setPassword(e.target.value)}
           />
           <button
-            className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 mb-2" // Added margin-bottom
+            className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 mb-2"
             onClick={handleLoginClick}
           >
             Login
@@ -54,7 +55,7 @@ export default function Login({ onLogin }) {
 
       {/* Right Column - Feature Slideshow */}
       <div className="w-2/3 bg-gray-900 text-white p-8 flex flex-col items-center justify-center">
-        <FeaturesSlideshow /> {/* Corrected component name */}
+        <FeaturesSlideshow />
       </div>
     </div>
   );

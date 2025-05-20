@@ -25,7 +25,10 @@ export default function Dashboard({ isRegistered, setIsRegistered }) {
       {/* Left Sidebar */}
       <div className="w-1/3 bg-gray-100 p-8 flex flex-col justify-between">
         <div> {/* Container for top elements */}
-          <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">Dashboard</h1>
+          {/* This should be correct */}
+          <h1 className="text-3xl font-bold mb-6 text-center text-gray-800 dark:text-gray-800">
+            Dashboard
+          </h1>
           <div className="flex flex-col items-center space-y-4">
             <button
               className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 w-full text-base"
@@ -66,7 +69,7 @@ export default function Dashboard({ isRegistered, setIsRegistered }) {
             )}
           </div>
         </div>
-        {/* ... Logout button ... */}
+        {/* Logout button */}
          <div> {/* Container for bottom elements (Logout) */}
           {isRegistered && (
             <button
@@ -80,7 +83,8 @@ export default function Dashboard({ isRegistered, setIsRegistered }) {
       </div>
 
       {/* Right Content Area */}
-      <div className="w-2/3 bg-gray-900 text-white p-8 flex items-center justify-center">
+      {/* This area correctly uses theme-based background/text */}
+      <div className="w-2/3 bg-blue-50 dark:bg-[#242424] text-blue-900 dark:text-[rgba(255,255,255,0.87)] p-8 flex items-center justify-center transition-colors duration-300">
         {/* Pass the showLocation function to Weather */}
         {activeComponent === "weather" && <Weather onSelectLocation={showLocation} />}
         {/* Pass isRegistered prop to Location */}
@@ -88,7 +92,8 @@ export default function Dashboard({ isRegistered, setIsRegistered }) {
         {/* Add Emergency component, pass showLocation as the handler */}
         {activeComponent === "emergency" && <Emergency onSelectEmergency={showLocation} />}
         {!activeComponent && (
-          <div className="text-center text-gray-400">
+          // Adjust placeholder text color for theme
+          <div className="text-center text-blue-800 dark:text-gray-400">
             <p>Select an option from the dashboard to view details.</p>
           </div>
         )}

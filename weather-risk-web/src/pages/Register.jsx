@@ -1,7 +1,6 @@
 // filepath: c:\Users\dropt\.vscode\mobileweatherresponse\weather-risk-web\src\pages\Location.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-// Correct the import name to match the filename
 import FeaturesSlideshow from '../components/FeaturesSlideshow'; // Import the slideshow component
 
 // Accept onRegister prop to update the state in App.jsx
@@ -26,7 +25,8 @@ export default function Register({ onRegister }) {
     <div className="min-h-screen flex">
       {/* Left Column - Registration Form */}
       <div className="w-1/3 bg-gray-100 flex items-center justify-center p-8">
-        <div className="bg-white p-8 rounded shadow-md w-full max-w-sm"> {/* Adjusted width */}
+        <div className="bg-white p-8 rounded shadow-md w-full max-w-sm">
+          {/* This should be correct */}
           <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Register</h1>
           <input
             type="email"
@@ -43,7 +43,7 @@ export default function Register({ onRegister }) {
             onChange={(e) => setPassword(e.target.value)}
           />
           <button
-            className="w-full bg-purple-500 text-white py-2 rounded hover:bg-purple-600 mb-2" // Added margin-bottom
+            className="w-full bg-purple-500 text-white py-2 rounded hover:bg-purple-600 mb-2"
             onClick={handleRegisterClick}
           >
             Register
@@ -59,7 +59,6 @@ export default function Register({ onRegister }) {
 
       {/* Right Column - Feature Slideshow */}
       <div className="w-2/3 bg-gray-900 text-white p-8 flex flex-col items-center justify-center">
-        {/* Use the corrected component name */}
         <FeaturesSlideshow />
       </div>
     </div>
