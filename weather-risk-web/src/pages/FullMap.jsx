@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import L from "leaflet"; // Import Leaflet
-import "leaflet/dist/leaflet.css"; // Import Leaflet CSS
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import "leaflet.heat";
 
 // Import marker assets
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -18,27 +19,56 @@ L.Icon.Default.mergeOptions({
 
 export default function FullMap() {
   const navigate = useNavigate();
-  const mapRef = useRef(null); // Use a ref to track the map instance
+  const mapRef = useRef(null);
 
   useEffect(() => {
-    // Check if the map is already initialized
     if (mapRef.current) return;
 
     // Initialize the map
-    const map = L.map("map").setView([14.5995, 120.9842], 13); // Example: Manila coordinates
-    mapRef.current = map; // Store the map instance in the ref
+    const map = L.map("map").setView([14.5995, 120.9842], 13);
+    mapRef.current = map;
 
     // Add OpenStreetMap tiles
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors",
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19
     }).addTo(map);
 
-    // Add a marker
-    L.marker([14.5995, 120.9842])
+    // Custom Geoapify icon
+    const customIcon = L.icon({
+      iconUrl: "https://api.geoapify.com/v1/icon?type=awesome&color=%2352b74c&size=x-large&icon=tree&noWhiteCircle=true&scaleFactor=2&apiKey=d607abafaa864efbae4af049e4cbbdee",
+      iconSize: [62, 92],
+      iconAnchor: [31, 92],
+      popupAnchor: [0, -92]
+    });
+
+    // Add marker with custom icon
+    L.marker([14.5995, 120.9842], { icon: customIcon })
       .addTo(map)
-      .bindPopup("You are here!")
+      .bindPopup("Custom Geoapify Tree Icon")
       .openPopup();
-  }, []); // Empty dependency array ensures this runs only once
+
+    // Add heatmap layer with sample data
+    const heatData = [
+      [14.5995, 120.9842, 0.5],
+      [14.6005, 120.9820, 0.8],
+      [14.5980, 120.9860, 0.4]
+    ];
+    L.heatLayer(heatData, { radius: 25 }).addTo(map);
+
+    // Get user's location and add a marker
+    map.locate({ setView: true, maxZoom: 16 });
+
+    map.on('locationfound', function(e) {
+      L.marker(e.latlng)
+        .addTo(map)
+        .bindPopup("You are here").openPopup();
+    });
+
+    map.on('locationerror', function() {
+      alert("Location access denied.");
+    });
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-900 text-white p-4">
@@ -50,7 +80,9 @@ export default function FullMap() {
           &larr; Back to Dashboard
         </button>
       </div>
-      <h1 className="text-2xl font-bold text-center mb-4">Emergency Map Overview</h1>
+      <h1 className="text-2xl font-bold text-center mb-4">
+        Emergency Map Overview
+      </h1>
       {/* Map container */}
       <div
         id="map"
