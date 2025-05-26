@@ -1,39 +1,74 @@
 // filepath: c:\Users\dropt\.vscode\mobileweatherresponse\weather-risk-web\src\pages\Account.jsx
-import React, { useState } from 'react'; // Removed useEffect
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
 // Receive theme and setTheme as props
 export default function Account({ theme, setTheme }) {
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [userInfo, setUserInfo] = useState({ email: "user@example.com" });
+  const [emailPromptsActive, setEmailPromptsActive] = useState(false);
 
-  // REMOVED local theme useState and useEffect
+  // Mock data for charts
+  const emergenciesCalledData = [
+    { month: 'Jan', count: 2 },
+    { month: 'Feb', count: 4 },
+    { month: 'Mar', count: 1 },
+    { month: 'Apr', count: 6 },
+    { month: 'May', count: 3 },
+    { month: 'Jun', count: 5 }
+  ];
 
-  // Use the setTheme prop directly
+  const frequentLocationsData = [
+    { location: 'San Pedro City', visits: 15 },
+    { location: 'Makati', visits: 8 },
+    { location: 'Quezon City', visits: 12 },
+    { location: 'Manila', visits: 6 },
+    { location: 'Pasig', visits: 4 }
+  ];
+
+  const emergencyLocationsPinnedData = [
+    { location: 'Hospital District', pins: 8, color: '#8884d8' },
+    { location: 'Fire Station Area', pins: 5, color: '#82ca9d' },
+    { location: 'Police Station', pins: 6, color: '#ffc658' },
+    { location: 'Flood Zone', pins: 10, color: '#ff7300' },
+    { location: 'Earthquake Risk', pins: 3, color: '#8dd1e1' }
+  ];
+
   const handleThemeChange = (newTheme) => {
-    setTheme(newTheme); // Call the function passed from App.jsx
+    setTheme(newTheme);
     console.log("Theme changed to:", newTheme);
   };
 
-  const handleInputChange = (e) => { /* ... no change ... */ };
-  const handleSaveChanges = () => { /* ... no change ... */ };
+  const handleInputChange = (e) => {};
+  const handleSaveChanges = () => {};
+
+  const toggleEmailPrompts = () => {
+    setEmailPromptsActive(!emailPromptsActive);
+  };
+
+  const closeModal = () => {
+    setShowAnalytics(false);
+  };
 
   // Define styles based on the theme prop
-  // Note: Base page background/text is now handled by App.jsx wrapper
   const cardBg = theme === 'light' ? "bg-white" : "bg-gray-800";
-  const textColor = theme === 'light' ? "text-blue-950" : "text-gray-100"; // Primary text within cards/page
+  const textColor = theme === 'light' ? "text-blue-950" : "text-gray-100";
   const secondaryTextColor = theme === 'light' ? "text-blue-800" : "text-gray-300";
   const borderColor = theme === 'light' ? "border-blue-200" : "border-gray-700";
   const inputBg = theme === 'light' ? "bg-blue-100" : "bg-gray-700";
   const inputBorder = theme === 'light' ? "border-blue-300" : "border-gray-600";
-  const buttonTextColor = theme === 'light' ? "text-blue-900" : "text-white"; // For inactive theme buttons
+  const buttonTextColor = theme === 'light' ? "text-blue-900" : "text-white";
   const backButtonBg = theme === 'light' ? "bg-blue-200 text-blue-800 hover:bg-blue-300" : "bg-gray-600 text-white hover:bg-gray-500";
   const inactiveThemeButtonBg = theme === 'light' ? "bg-blue-100 hover:bg-blue-200" : "bg-gray-600 hover:bg-gray-500";
-  const activeThemeButtonBg = "bg-blue-500 text-white"; // Same for both themes
+  const activeThemeButtonBg = "bg-blue-500 text-white";
+
+  // Email Prompt Button Styles
+  const activePromptButton = "bg-green-500 text-white px-5 py-2 rounded hover:bg-green-600";
+  const inactivePromptButton = "bg-red-500 text-white px-5 py-2 rounded hover:bg-red-600";
 
   return (
-    // No need for pageBg/textColor here, inherited from App.jsx wrapper
     <div className="p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6 flex justify-start">
@@ -45,7 +80,6 @@ export default function Account({ theme, setTheme }) {
           </button>
         </div>
 
-        {/* Use textColor for main heading */}
         <h1 className={`text-4xl font-bold mb-8 text-center ${textColor}`}>Account Settings</h1>
 
         {/* Edit Account Information Section */}
@@ -89,24 +123,99 @@ export default function Account({ theme, setTheme }) {
           </div>
         </div>
 
+        {/* Email Prompt Section */}
+        <div className={`${cardBg} shadow-lg rounded-lg p-6 mb-8`}>
+          <h2 className={`text-2xl font-semibold mb-4 border-b ${borderColor} pb-2 ${textColor}`}>Email Prompt</h2>
+          <div className="flex items-center space-x-4">
+            <span className={`text-sm font-medium ${secondaryTextColor}`}>Email: {userInfo.email}</span>
+          </div>
+          <div className="flex items-center space-x-4 mt-4">
+            <button
+              onClick={toggleEmailPrompts}
+              className={emailPromptsActive ? activePromptButton : inactivePromptButton}
+            >
+              {emailPromptsActive ? 'Deactivate Email Prompts' : 'Activate Email Prompts'}
+            </button>
+          </div>
+        </div>
+
         {/* Analytics Section */}
         <div className={`${cardBg} shadow-lg rounded-lg p-6`}>
            <h2 className={`text-2xl font-semibold mb-4 border-b ${borderColor} pb-2 ${textColor}`}>Analytics</h2>
-           <button onClick={() => setShowAnalytics(!showAnalytics)}
+           <button onClick={() => setShowAnalytics(true)}
                    className="bg-green-500 text-white px-5 py-2 rounded hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 mb-4">
-             {showAnalytics ? 'Hide' : 'Show'} Statistics
+             Show Statistics
            </button>
-           {showAnalytics && (
-             <div className={`${theme === 'light' ? 'bg-blue-100' : 'bg-gray-700'} p-4 rounded`}>
-               <h3 className={`text-lg font-semibold mb-2 ${textColor}`}>Usage Statistics (Placeholder)</h3>
-               <ul className={`list-disc list-inside space-y-1 text-sm ${secondaryTextColor}`}>
-                 <li>Logins this month: 15</li>
-                 <li>Locations saved: 3</li>
-                 <li>Alerts received: 5</li>
-               </ul>
-             </div>
-           )}
          </div>
+
+         {/* Analytics Modal */}
+         {showAnalytics && (
+          <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className={`${cardBg} rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto relative`}>
+              <button onClick={closeModal} className="absolute top-4 right-4 px-3 py-1 bg-gray-300 rounded hover:bg-gray-400 text-gray-800">
+                ✕
+              </button>
+              <h2 className={`text-2xl font-semibold mb-6 ${textColor}`}>Usage Statistics</h2>
+
+              {/* Emergencies Called Chart */}
+              <div className="mb-8">
+                <h3 className={`text-lg font-semibold mb-4 ${textColor}`}>Emergencies Called (Monthly)</h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={emergenciesCalledData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#8884d8" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Frequent Locations Checked Chart */}
+              <div className="mb-8">
+                <h3 className={`text-lg font-semibold mb-4 ${textColor}`}>Frequent Locations Checked</h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={frequentLocationsData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="location" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="visits" fill="#82ca9d" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Emergency Locations Pinned Chart */}
+              <div>
+                <h3 className={`text-lg font-semibold mb-4 ${textColor}`}>Frequent Emergency Locations Pinned</h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={emergencyLocationsPinnedData}
+                        dataKey="pins"
+                        nameKey="location"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={({location, pins}) => `${location}: ${pins}`}
+                      >
+                        {emergencyLocationsPinnedData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

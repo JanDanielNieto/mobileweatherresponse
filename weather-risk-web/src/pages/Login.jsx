@@ -54,7 +54,7 @@ export default function Login({ onLogin }) {
       </div>
 
       {/* Right Column - Feature Slideshow */}
-      <div className="w-2/3 bg-gray-900 text-white p-8 flex flex-col items-center justify-center">
+      <div className="w-2/3 relative overflow-hidden">
         <FeaturesSlideshow />
       </div>
     </div>

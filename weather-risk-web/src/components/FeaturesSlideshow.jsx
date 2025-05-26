@@ -1,65 +1,84 @@
 import React, { useState, useEffect } from 'react';
-import { slidesData } from '../data/slidesData'; // Import the slide data
+import { slidesData } from '../data/slidesData';
 
 export default function FeaturesSlideshow() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [imageLoadError, setImageLoadError] = useState(false);
 
   useEffect(() => {
-    console.log("Setting up interval..."); // Log setup
+    console.log("Setting up interval...");
     const intervalId = setInterval(() => {
       setCurrentSlideIndex((prevIndex) => {
         const nextIndex = (prevIndex + 1) % slidesData.length;
-        console.log(`Interval fired: Changing slide index from ${prevIndex} to ${nextIndex}`); // Log interval fire
+        console.log(`Interval fired: Changing slide index from ${prevIndex} to ${nextIndex}`);
         return nextIndex;
       });
-    }, 5000); // 60 seconds - consider shortening for testing (e.g., 5000 for 5s)
+    }, 5000);
 
-    // Log initial state
     console.log("Initial Slide Index:", 0, "Slide Title:", slidesData[0].title);
 
     return () => {
-      console.log("Clearing interval..."); // Log cleanup
+      console.log("Clearing interval...");
       clearInterval(intervalId);
     };
-  }, []); // Empty dependency array is correct here
+  }, []);
+
+  // Reset image load error when slide changes
+  useEffect(() => {
+    setImageLoadError(false);
+  }, [currentSlideIndex]);
 
   const currentSlide = slidesData[currentSlideIndex];
 
-  // Log current slide data on each render
-  console.log("Rendering Slide Index:", currentSlideIndex, "Slide Title:", currentSlide.title);
-
   return (
-    <div className="text-center max-w-lg w-full">
-      <div key={currentSlideIndex} className="animate-fade-in">
-        {currentSlide.imageUrl && (
-          <img
-            src={currentSlide.imageUrl}
-            alt={currentSlide.title}
-            className="w-full h-48 object-cover rounded-lg mb-6 shadow-md"
-          />
-        )}
-        <h2 className="text-3xl font-bold mb-3">{currentSlide.title}</h2>
-        <p className="text-lg text-gray-300">
-          {currentSlide.description}
-        </p>
+    <div className="relative w-full h-full">
+      {/* Background Image or Fallback */}
+      {currentSlide.imageUrl && !imageLoadError ? (
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url(${currentSlide.imageUrl})`,
+          }}
+        />
+      ) : (
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          }}
+        />
+      )}
+      
+      {/* Hidden image to detect load errors */}
+      {currentSlide.imageUrl && (
+        <img
+          src={currentSlide.imageUrl}
+          alt=""
+          style={{ display: 'none' }}
+          onError={() => {
+            setImageLoadError(true);
+          }}
+          onLoad={() => {
+            setImageLoadError(false);
+          }}
+        />
+      )}
+      
+      {/* Semi-transparent overlay for better text readability - using rgba instead of bg-black */}
+      <div 
+        className="absolute inset-0" 
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+      />
+      
+      {/* Content */}
+      <div key={currentSlideIndex} className="relative z-10 flex items-center justify-center h-full">
+        <div className="text-center max-w-lg w-full px-8">
+          <h2 className="text-4xl font-bold mb-4 text-white drop-shadow-2xl">{currentSlide.title}</h2>
+          <p className="text-xl text-gray-100 drop-shadow-xl">
+            {currentSlide.description}
+          </p>
+        </div>
       </div>
     </div>
   );
 }
-
-// Optional: Add a simple fade-in animation in your index.css if you want
-/*
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer utilities {
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-in-out;
-  }
-}
-*/

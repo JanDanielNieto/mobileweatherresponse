@@ -5,11 +5,10 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Account from "./pages/Account";
 import FullMap from "./pages/FullMap";
+import './css/index.css';
 
 function App() {
   const [isRegistered, setIsRegistered] = useState(false);
-
-  // --- Centralized Theme State ---
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('theme');
     // Default to 'dark' if nothing saved or invalid value
@@ -26,7 +25,6 @@ function App() {
     }
     localStorage.setItem('theme', theme);
   }, [theme]);
-  // --- End Theme State ---
 
   const handleRegister = () => setIsRegistered(true);
   const handleLogin = () => setIsRegistered(true);

@@ -4,7 +4,7 @@ import Weather from "./Weather";
 import Location from "./Location";
 import Emergency from "./Emergency"; // Import the Emergency component
 
-export default function Dashboard({ isRegistered, setIsRegistered }) {
+export default function Dashboard({ isRegistered, setIsRegistered, theme }) { // Receive theme prop
   const [activeComponent, setActiveComponent] = useState(null);
   const navigate = useNavigate();
 
@@ -26,7 +26,7 @@ export default function Dashboard({ isRegistered, setIsRegistered }) {
       <div className="w-1/3 bg-gray-100 p-8 flex flex-col justify-between">
         <div> {/* Container for top elements */}
           {/* This should be correct */}
-          <h1 className="text-3xl font-bold mb-6 text-center text-gray-800 dark:text-gray-800">
+          <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
             Dashboard
           </h1>
           <div className="flex flex-col items-center space-y-4">
@@ -84,7 +84,7 @@ export default function Dashboard({ isRegistered, setIsRegistered }) {
 
       {/* Right Content Area */}
       {/* This area correctly uses theme-based background/text */}
-      <div className="w-2/3 bg-blue-50 dark:bg-[#242424] text-blue-900 dark:text-[rgba(255,255,255,0.87)] p-8 flex items-center justify-center transition-colors duration-300">
+      <div className={`w-2/3 bg-blue-50 dark:bg-[#242424] text-blue-900 dark:text-[rgba(255,255,255,0.87)] p-8 flex items-center justify-center transition-colors duration-300`}>
         {/* Pass the showLocation function to Weather */}
         {activeComponent === "weather" && <Weather onSelectLocation={showLocation} />}
         {/* Pass isRegistered prop to Location */}
