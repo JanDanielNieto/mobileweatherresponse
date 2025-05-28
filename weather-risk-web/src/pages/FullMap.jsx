@@ -22,17 +22,35 @@ export default function FullMap() {
   const mapRef = useRef(null);
 
   useEffect(() => {
-    if (mapRef.current) return;
+    if (mapRef.current) {
+      // If map already exists, remove the old tile layer and add a new one for up-to-date tiles
+      mapRef.current.eachLayer(layer => {
+        if (layer instanceof L.TileLayer) {
+          mapRef.current.removeLayer(layer);
+        }
+      });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(mapRef.current);
+      return;
+    }
 
-    // Initialize the map
+    // Initialize the map (Manila coordinates)
     const map = L.map("map").setView([14.5995, 120.9842], 13);
     mapRef.current = map;
 
-    // Add OpenStreetMap tiles
+    // Add OpenStreetMap tiles (updated in real time)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19
     }).addTo(map);
+
+    // Add a marker for Manila
+    L.marker([14.5995, 120.9842])
+      .addTo(map)
+      .bindPopup('Manila, Philippines')
+      .openPopup();
 
     // Custom Geoapify icon
     const customIcon = L.icon({
@@ -48,13 +66,18 @@ export default function FullMap() {
       .bindPopup("Custom Geoapify Tree Icon")
       .openPopup();
 
-    // Add heatmap layer with sample data
+    // Add heatmap layer with updated sample data and options
     const heatData = [
       [14.5995, 120.9842, 0.5],
-      [14.6005, 120.9820, 0.8],
-      [14.5980, 120.9860, 0.4]
+      [14.6095, 120.9842, 0.8],
+      [14.6195, 120.9742, 0.4],
+      [14.5895, 120.9642, 0.9]
     ];
-    L.heatLayer(heatData, { radius: 25 }).addTo(map);
+    L.heatLayer(heatData, {
+      radius: 25,
+      blur: 15,
+      maxZoom: 17
+    }).addTo(map);
 
     // Get user's location and add a marker
     map.locate({ setView: true, maxZoom: 16 });
