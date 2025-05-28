@@ -68,6 +68,22 @@ export default function FullMap() {
     map.on('locationerror', function() {
       alert("Location access denied.");
     });
+
+    // --- Weather API Integration ---
+    const latitude = 14.3165; // Carmona latitude
+    const longitude = 121.0574; // Carmona longitude
+
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m`)
+      .then(response => response.json())
+      .then(data => {
+        console.log('Hourly Temperature Forecast:', data.hourly.temperature_2m);
+        // You can use the data here, e.g., show on the map or in a popup
+      })
+      .catch(error => {
+        console.error('Error fetching weather data:', error);
+      });
+    // --- End Weather API Integration ---
+
   }, []);
 
   return (
