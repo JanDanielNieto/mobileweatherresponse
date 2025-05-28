@@ -1,5 +1,5 @@
 // filepath: c:\Users\dropt\.vscode\mobileweatherresponse\weather-risk-web\src\pages\Location.jsx
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react"; // Added useState
 import { useNavigate } from "react-router-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -18,19 +18,31 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-export default function Location({ isRegistered }) {
+// Accept context prop
+export default function Location({ isRegistered, context }) {
   const navigate = useNavigate();
-  const mapRef = useRef(null);
+  const mapRef = useRef(null); // To store the map instance
+  const [isPinning, setIsPinning] = useState(false); // To track pinning mode
 
   useEffect(() => {
     if (!isRegistered) return;
-    if (mapRef.current) return;
+    if (mapRef.current && !isPinning) { // If map exists and not entering pinning mode, do nothing
+        // If context changes and we were pinning, reset
+        if (mapRef.current.getContainer().style.cursor === 'crosshair') {
+            mapRef.current.getContainer().style.cursor = '';
+        }
+        return;
+    }
+    if (mapRef.current && isPinning) { // If map exists and we are pinning
+        mapRef.current.getContainer().style.cursor = 'crosshair';
+        return; // Don't reinitialize map
+    }
+
 
     // Initialize the map
     const map = L.map("map").setView([14.5995, 120.9842], 13);
     mapRef.current = map;
 
-    // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19
@@ -70,24 +82,106 @@ export default function Location({ isRegistered }) {
     map.on('locationerror', function() {
       alert("Location access denied.");
     });
-  }, [isRegistered]);
+
+
+    // Cleanup map instance on component unmount
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [isRegistered]); // Initial map setup effect
+
+  // Effect for handling map clicks when pinning
+  useEffect(() => {
+    if (!isRegistered || !isPinning || !mapRef.current) {
+      if(mapRef.current && mapRef.current.getContainer().style.cursor === 'crosshair') {
+        mapRef.current.getContainer().style.cursor = ''; // Reset cursor if not pinning
+      }
+      return;
+    }
+
+    mapRef.current.getContainer().style.cursor = 'crosshair';
+
+    const handleMapClick = (e) => {
+      console.log(`Pinning for context: ${context} at Lat: ${e.latlng.lat}, Lng: ${e.latlng.lng}`);
+      // Future:
+      // if (context === 'weather') { /* Update weather for this location */ }
+      // if (context === 'addEmergency' || context === 'viewEmergency') { /* Add/update emergency marker */ }
+      alert(`Pinned for ${context} at ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`);
+      setIsPinning(false); // Exit pinning mode
+      mapRef.current.getContainer().style.cursor = ''; // Reset cursor
+    };
+
+    mapRef.current.on('click', handleMapClick);
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.off('click', handleMapClick);
+        mapRef.current.getContainer().style.cursor = ''; // Ensure cursor is reset
+      }
+    };
+  }, [isRegistered, isPinning, context, mapRef]);
+
+
+  const handlePinButtonClick = () => {
+    if (!isRegistered) return; // Should not happen if buttons are hidden, but good check
+    setIsPinning(true);
+  };
+
+  const handleCancelPinning = () => {
+    setIsPinning(false);
+    if (mapRef.current) {
+      mapRef.current.getContainer().style.cursor = ''; // Reset cursor
+    }
+  };
+
 
   return (
-    <div className="w-full flex flex-col items-center">
+    <div className="w-full h-full flex flex-col items-center relative"> {/* Added h-full and relative */}
       <h2 className="text-3xl font-bold text-white mb-6 text-center">
         Location Details
       </h2>
       {isRegistered ? (
         <>
-          <div className="w-full max-w-2xl h-96 bg-gray-700 rounded-lg shadow-md mb-6 flex items-center justify-center">
+          {/* Ensure map container takes available space */}
+          <div className="w-full flex-grow max-w-2xl h-[calc(100%-150px)] bg-gray-700 rounded-lg shadow-md mb-4"> {/* Adjusted height */}
             <div
               id="map"
               style={{ height: "100%", width: "100%" }}
               className="rounded-lg"
             ></div>
           </div>
-          <p className="text-gray-300 text-lg text-center">
-            Detailed location information and map controls will appear here.
+          {/* Buttons Area - Positioned absolutely within the parent */}
+          <div className="absolute bottom-4 right-4 z-[1000] flex flex-col space-y-2">
+            {!isPinning && context === 'weather' && (
+              <button
+                onClick={handlePinButtonClick}
+                className="bg-blue-500 text-white px-3 py-2 rounded shadow-lg hover:bg-blue-600 text-sm"
+              >
+                Pin Weather Location
+              </button>
+            )}
+            {!isPinning && (context === 'addEmergency' || context === 'viewEmergency') && (
+              <button
+                onClick={handlePinButtonClick}
+                className="bg-red-500 text-white px-3 py-2 rounded shadow-lg hover:bg-red-600 text-sm"
+              >
+                Pin Emergency Location
+              </button>
+            )}
+            {isPinning && (
+              <button
+                onClick={handleCancelPinning}
+                className="bg-gray-500 text-white px-3 py-2 rounded shadow-lg hover:bg-gray-600 text-sm"
+              >
+                Cancel Pinning
+              </button>
+            )}
+          </div>
+          <p className="text-gray-300 text-sm text-center mt-2">
+            {isPinning ? `Click on the map to pin for ${context}.` : 'Map controls will appear here.'}
           </p>
         </>
       ) : (
