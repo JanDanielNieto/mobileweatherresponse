@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react"; // Added useState
 import { useNavigate } from "react-router-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -20,6 +20,20 @@ L.Icon.Default.mergeOptions({
 export default function FullMap() {
   const navigate = useNavigate();
   const mapRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState(""); // State for search query
+
+  // Placeholder for search functionality
+  const handleSearch = () => {
+    if (!searchQuery.trim()) {
+      alert("Please enter a location to search.");
+      return;
+    }
+    console.log("Searching for:", searchQuery);
+    // In a real application, you would use a geocoding service here
+    // to get coordinates for the searchQuery and then pan/zoom the map.
+    // For example: mapRef.current.setView([lat, lng], 13);
+    alert(`Search for "${searchQuery}" initiated. (Geocoding not implemented)`);
+  };
 
   useEffect(() => {
     if (mapRef.current) {
@@ -119,9 +133,27 @@ export default function FullMap() {
           &larr; Back to Dashboard
         </button>
       </div>
-      <h1 className="text-2xl font-bold text-center mb-4">
+      <h1 className="text-2xl font-bold text-center mb-2"> {/* Reduced margin-bottom */}
         Emergency Map Overview
       </h1>
+
+      {/* Search Bar Section */}
+      <div className="my-4 flex justify-center">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search for a location..."
+          className="px-4 py-2 w-1/2 rounded-l-md border-0 bg-white text-gray-800 focus:ring-2 focus:ring-blue-500"
+        />
+        <button
+          onClick={handleSearch}
+          className="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600"
+        >
+          Search
+        </button>
+      </div>
+
       {/* Map container */}
       <div
         id="map"

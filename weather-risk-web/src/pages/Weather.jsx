@@ -15,8 +15,7 @@ export default function Weather({ onSelectLocation }) {
   // };
 
   return (
-    // Use relative positioning on the main container
-    <div className="w-full relative pb-16"> {/* Added relative and padding-bottom */}
+    <div className="w-full relative pb-16">
       <h2 className="text-3xl font-bold text-white mb-6 text-center">
         Weather Forecast
       </h2>
@@ -50,7 +49,7 @@ export default function Weather({ onSelectLocation }) {
 
       {/* Button positioned absolutely at the bottom right */}
       <button
-        onClick={onSelectLocation} // Call the passed function on click
+        onClick={() => onSelectLocation(null, 'weather')} // Pass null for item, and 'weather' context
         className="absolute bottom-0 right-0 bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 text-sm"
       >
         Select Location
