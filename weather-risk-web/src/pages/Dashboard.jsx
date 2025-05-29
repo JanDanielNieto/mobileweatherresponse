@@ -34,7 +34,11 @@ export default function Dashboard({ isRegistered, setIsRegistered }) {
       {/* Left Sidebar */}
       <div className="w-1/3 bg-gray-100 p-8 flex flex-col justify-between">
         <div> {/* Container for top elements */}
-          <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
+          {/* New SeiaWeather Heading */}
+          <div className="text-center mb-4">
+            <h1 className="text-4xl font-bold text-blue-600 font-serif">SeiaWeather</h1>
+          </div>
+          <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">
             Dashboard
           </h1>
           <div className="flex flex-col items-center space-y-4">
