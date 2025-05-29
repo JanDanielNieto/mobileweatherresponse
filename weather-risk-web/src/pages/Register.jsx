@@ -5,15 +5,16 @@ import FeaturesSlideshow from '../components/FeaturesSlideshow'; // Import the s
 
 // Accept onRegister prop to update the state in App.jsx
 export default function Register({ onRegister }) {
+  const [username, setUsername] = useState(""); // Added username state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
   const handleRegisterClick = () => {
-    if (email && password) {
+    if (username && email && password) { // Added username to condition
       // Simulate successful registration
-      console.log("Simulating registration for:", email);
-      onRegister(); // Call the function passed from App.jsx
+      console.log("Simulating registration for:", username, email); // Added username to log
+      onRegister(username); // Pass username to onRegister callback
       alert("Registration successful!");
       navigate("/dashboard"); // Navigate back to dashboard after registration
     } else {
@@ -42,6 +43,13 @@ export default function Register({ onRegister }) {
         <div className="bg-white p-8 rounded shadow-md w-full max-w-sm">
           {/* This should be correct */}
           <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Register</h1>
+          <input
+            type="text" // Added username input field
+            placeholder="Username"
+            className="w-full p-2 mb-4 border rounded text-gray-800"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
           <input
             type="email"
             placeholder="Email"

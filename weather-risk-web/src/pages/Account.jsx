@@ -3,11 +3,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
-// Receive theme and setTheme as props
-export default function Account({ theme, setTheme }) {
+// Receive theme, setTheme, and loggedInUser as props
+export default function Account({ theme, setTheme, loggedInUser }) {
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [userInfo, setUserInfo] = useState({ email: "user@example.com" });
+  // Use loggedInUser for email display, or a default if not available
+  const [userInfo, setUserInfo] = useState({ email: loggedInUser ? `${loggedInUser.toLowerCase().replace(/\s+/g, '.')}@example.com` : "user@example.com" });
   const [emailPromptsActive, setEmailPromptsActive] = useState(false);
 
   // Mock data for charts
@@ -37,9 +38,21 @@ export default function Account({ theme, setTheme }) {
   ];
 
   const handleThemeChange = (newTheme) => {
-    setTheme(newTheme);
-    console.log("Theme changed to:", newTheme);
+    // Only call setTheme if the new theme is different from the current theme
+    if (theme !== newTheme) {
+      setTheme(newTheme);
+      console.log("Theme changed to:", newTheme);
+    } else {
+      console.log("Theme is already:", newTheme);
+    }
   };
+
+  // Update userInfo if loggedInUser changes (e.g., after login)
+  React.useEffect(() => {
+    if (loggedInUser) {
+      setUserInfo({ email: `${loggedInUser.toLowerCase().replace(/\s+/g, '.')}@example.com` });
+    }
+  }, [loggedInUser]);
 
   const handleInputChange = (e) => {};
   const handleSaveChanges = () => {};
@@ -82,10 +95,22 @@ export default function Account({ theme, setTheme }) {
 
         <h1 className={`text-4xl font-bold mb-8 text-center ${textColor}`}>Account Settings</h1>
 
+        {/* User Welcome Message */}
+        {loggedInUser && (
+          <div className={`${cardBg} shadow-lg rounded-lg p-4 mb-8 text-center ${textColor}`}>
+            <p className="text-lg">Welcome, <span className="font-semibold">{loggedInUser}</span>!</p>
+          </div>
+        )}
+
         {/* Edit Account Information Section */}
         <div className={`${cardBg} shadow-lg rounded-lg p-6 mb-8`}>
           <h2 className={`text-2xl font-semibold mb-4 border-b ${borderColor} pb-2 ${textColor}`}>Edit Information</h2>
           <div className="space-y-4">
+            <div>
+              <label htmlFor="username" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>Username</label>
+              <input type="text" id="username" name="username" value={loggedInUser || ''} readOnly
+                     className={`w-full p-2 border rounded ${inputBg} ${textColor} ${inputBorder} cursor-not-allowed`} />
+            </div>
             <div>
               <label htmlFor="email" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>Email Address</label>
               <input type="email" id="email" name="email" value={userInfo.email} onChange={handleInputChange}
