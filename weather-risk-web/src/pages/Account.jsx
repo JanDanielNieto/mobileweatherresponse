@@ -1,15 +1,31 @@
 // filepath: c:\Users\dropt\.vscode\mobileweatherresponse\weather-risk-web\src\pages\Account.jsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { supabase } from "../supabase"; // Adjust path if needed
 
 // Receive theme, setTheme, and loggedInUser as props
 export default function Account({ theme, setTheme, loggedInUser }) {
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
-  // Use loggedInUser for email display, or a default if not available
   const [userInfo, setUserInfo] = useState({ email: loggedInUser ? `${loggedInUser.toLowerCase().replace(/\s+/g, '.')}@example.com` : "user@example.com" });
   const [emailPromptsActive, setEmailPromptsActive] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+      if (error) {
+        console.error("Error fetching user:", error.message);
+        return;
+      }
+      setUser(user);
+    };
+    getUser();
+  }, []);
 
   // Mock data for charts
   const emergenciesCalledData = [
@@ -83,6 +99,19 @@ export default function Account({ theme, setTheme, loggedInUser }) {
 
   return (
     <div className="p-8">
+      {/* Supabase user info section */}
+      <div className="text-white p-4">
+        <h2 className="text-xl font-bold mb-4">Account Page</h2>
+        {user ? (
+          <div>
+            <p>Email: {user.email}</p>
+            <p>User ID: {user.id}</p>
+          </div>
+        ) : (
+          <p>Loading user info...</p>
+        )}
+      </div>
+
       <div className="max-w-4xl mx-auto">
         <div className="mb-6 flex justify-start">
           <button

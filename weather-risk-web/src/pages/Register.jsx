@@ -2,38 +2,29 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FeaturesSlideshow from '../components/FeaturesSlideshow'; // Import the slideshow component
+import { supabase } from "../supabase"; // adjust path if needed
 
-// Accept onRegister prop to update the state in App.jsx
-export default function Register({ onRegister }) {
-  const [username, setUsername] = useState(""); // Added username state
+// Supabase-powered registration form
+export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
-  const handleRegisterClick = () => {
-    if (username && email && password) { // Added username to condition
-      // Simulate successful registration
-      console.log("Simulating registration for:", username, email); // Added username to log
-      onRegister(username); // Pass username to onRegister callback
-      alert("Registration successful!");
-      navigate("/dashboard"); // Navigate back to dashboard after registration
+  const handleRegister = async (e) => {
+    e.preventDefault();
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      setMessage(`Error: ${error.message}`);
     } else {
-      alert("Please fill in all fields.");
+      setMessage("Registration successful! Check your email to confirm.");
+      navigate("/dashboard"); // Navigate to dashboard on successful registration
     }
-  };
-
-  const handleGoogleRegister = () => {
-    // Placeholder for Google registration logic
-    console.log("Google registration clicked");
-    // You would implement Google OAuth here
-    alert("Google registration - Coming Soon!");
-  };
-
-  const handleFacebookRegister = () => {
-    // Placeholder for Facebook registration logic
-    console.log("Facebook registration clicked");
-    // You would implement Facebook OAuth here
-    alert("Facebook registration - Coming Soon!");
   };
 
   return (
@@ -41,41 +32,32 @@ export default function Register({ onRegister }) {
       {/* Left Column - Registration Form */}
       <div className="w-1/3 bg-gray-100 flex items-center justify-center p-8">
         <div className="bg-white p-8 rounded shadow-md w-full max-w-sm">
-          {/* This should be correct */}
           <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Register</h1>
-          <input
-            type="text" // Added username input field
-            placeholder="Username"
-            className="w-full p-2 mb-4 border rounded text-gray-800"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full p-2 mb-4 border rounded text-gray-800"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full p-2 mb-4 border rounded text-gray-800"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button
-            className="w-full bg-purple-500 text-white py-2 rounded hover:bg-purple-600 mb-2"
-            onClick={handleRegisterClick}
-          >
-            Register
-          </button>
-          <button
-            className="w-full text-sm text-blue-500 hover:underline mb-4"
-            onClick={() => navigate("/login")}
-          >
-            Already have an account? Login
-          </button>
+          <form onSubmit={handleRegister} className="space-y-4">
+            <input
+              type="email"
+              placeholder="Email"
+              className="w-full p-2 rounded bg-gray-800"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              className="w-full p-2 rounded bg-gray-800"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button
+              type="submit"
+              className="bg-green-600 px-4 py-2 rounded hover:bg-green-700"
+            >
+              Register
+            </button>
+          </form>
+          {message && <p className="mt-4 text-sm text-yellow-400">{message}</p>}
 
           {/* Divider */}
           <div className="flex items-center mb-4">
@@ -84,12 +66,11 @@ export default function Register({ onRegister }) {
             <div className="flex-grow border-t border-gray-300"></div>
           </div>
 
-          {/* Social Login Buttons */}
+          {/* Social Login Buttons - Currently non-functional placeholders */}
           <div className="space-y-2">
-            {/* Google Login Button */}
             <button
               className="w-full flex items-center justify-center bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded hover:bg-gray-50 transition-colors"
-              onClick={handleGoogleRegister}
+              onClick={() => alert("Google registration - Coming Soon!")}
             >
               <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -100,10 +81,9 @@ export default function Register({ onRegister }) {
               Continue with Google
             </button>
 
-            {/* Facebook Login Button */}
             <button
               className="w-full flex items-center justify-center bg-[#1877F2] text-white py-2 px-4 rounded hover:bg-[#166FE5] transition-colors"
-              onClick={handleFacebookRegister}
+              onClick={() => alert("Facebook registration - Coming Soon!")}
             >
               <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
