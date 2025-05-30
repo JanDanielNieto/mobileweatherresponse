@@ -10,6 +10,7 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
   const [activeComponent, setActiveComponent] = useState(null);
   const [activeComponentContext, setActiveComponentContext] = useState(null);
   const [pinnedWeatherData, setPinnedWeatherData] = useState(null);
+  const [newlyPinnedEmergency, setNewlyPinnedEmergency] = useState(null); // New state for pinned emergency
   const [isFetchingLiveWeather, setIsFetchingLiveWeather] = useState(false);
   const navigate = useNavigate();
   const justSetByViewWeatherClickRef = useRef(false);
@@ -73,6 +74,19 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
     console.log("Dashboard.jsx: handleClearPinnedData - justSetByViewWeatherClickRef is false. Clearing pinnedWeatherData.");
     setPinnedWeatherData(null);
   }, [setPinnedWeatherData]); // setPinnedWeatherData is stable
+
+  // Function to handle pinned emergency from Location.jsx
+  const handleEmergencyPin = (emergencyDataFromLocation) => {
+    console.log("Dashboard.jsx: handleEmergencyPin called with:", emergencyDataFromLocation);
+    setNewlyPinnedEmergency(emergencyDataFromLocation);
+    setActiveComponent("emergency"); // Switch view to the emergency list/modal
+  };
+
+  // Callback for Emergency.jsx to signal consumption of pinned data
+  const handlePinnedEmergencyConsumed = useCallback(() => {
+    console.log("Dashboard.jsx: Emergency component consumed the pinned data. Clearing newlyPinnedEmergency.");
+    setNewlyPinnedEmergency(null);
+  }, []);
 
   // Function to handle pinned weather location from Location.jsx
   const handleWeatherLocationPin = (data) => {
@@ -258,8 +272,8 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
           {isFetchingLiveWeather && <p className="text-lg">Fetching your location and weather...</p>}
           {!isFetchingLiveWeather && activeComponent === null && <MiniMap />}
           {!isFetchingLiveWeather && activeComponent === "weather" && <Weather initialData={pinnedWeatherData} clearInitialData={handleClearPinnedData} onSelectLocation={(item, context) => showLocation(item, context)} />}
-          {!isFetchingLiveWeather && activeComponent === "location" && <Location isRegistered={isRegistered} context={activeComponentContext} onWeatherLocationPin={handleWeatherLocationPin} />}
-          {!isFetchingLiveWeather && activeComponent === "emergency" && <Emergency onSelectEmergency={(item, context) => showLocation(item, context)} isRegistered={isRegistered} navigate={navigate} />}
+          {!isFetchingLiveWeather && activeComponent === "location" && <Location isRegistered={isRegistered} context={activeComponentContext} onWeatherLocationPin={handleWeatherLocationPin} onEmergencyPin={handleEmergencyPin} loggedInUser={loggedInUser} />}
+          {!isFetchingLiveWeather && activeComponent === "emergency" && <Emergency onSelectEmergency={(item, context) => showLocation(item, context)} isRegistered={isRegistered} navigate={navigate} pinnedEmergency={newlyPinnedEmergency} onPinnedEmergencyConsumed={handlePinnedEmergencyConsumed} />}
         </div>
 
         {/* Welcome Message - at the bottom of this right content area */}

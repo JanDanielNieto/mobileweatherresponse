@@ -18,8 +18,11 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
+const FULLMAP_PINS_STORAGE_KEY = 'fullMapEmergencyPins'; // Key for FullMap pins
+const THREE_DAYS_MS_LOCATION = 3 * 24 * 60 * 60 * 1000; // For consistency
+
 // Accept context and onWeatherLocationPin prop
-export default function Location({ isRegistered, context, onWeatherLocationPin, onEmergencyPin }) {
+export default function Location({ isRegistered, context, onWeatherLocationPin, onEmergencyPin, loggedInUser }) {
   const navigate = useNavigate();
   const mapRef = useRef(null); // To store the map instance
   const [isPinning, setIsPinning] = useState(false); // To track pinning mode
@@ -48,19 +51,6 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
       maxZoom: 19
     }).addTo(map);
 
-    // Custom Geoapify icon
-    const customIcon = L.icon({
-      iconUrl: "https://api.geoapify.com/v1/icon?type=awesome&color=%2352b74c&size=x-large&icon=tree&noWhiteCircle=true&scaleFactor=2&apiKey=d607abafaa864efbae4af049e4cbbdee",
-      iconSize: [62, 92],
-      iconAnchor: [31, 92],
-      popupAnchor: [0, -92]
-    });
-
-    // Add marker with custom icon
-    L.marker([14.5995, 120.9842], { icon: customIcon })
-      .addTo(map)
-      .bindPopup("Custom Geoapify Tree Icon")
-      .openPopup();
 
     // Add heatmap layer with sample data
     const heatData = [
@@ -186,34 +176,43 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
             .bindPopup(`<b>${type}</b><br>${city}<br>Severity: ${severity}`)
             .openPopup();
 
-          // 5. Pass the new emergency object to the Dashboard (parent) and go back to dashboard
+          const emergencyDataForDashboard = {
+            type,
+            city,
+            severity,
+            details,
+            user: loggedInUser || (isRegistered ? 'Registered User' : 'Anonymous'),
+            lat,
+            lng,
+          };
+
+          // 5. Pass the new emergency object to the Dashboard (parent)
           if (typeof onEmergencyPin === 'function') {
-            onEmergencyPin({
-              type,
-              city,
-              severity,
-              details,
-              user: isRegistered ? (window.loggedInUser || 'Registered User') : 'Anonymous',
-              lat,
-              lng,
-            });
-            setTimeout(() => navigate('/dashboard'), 800); // Short delay so marker is visible before navigating
+            onEmergencyPin(emergencyDataForDashboard);
           } else {
-            // Fallback: navigate to Emergency page with state
-            setTimeout(() => navigate('/dashboard', {
-              state: {
-                pinnedEmergency: {
-                  type,
-                  city,
-                  severity,
-                  details,
-                  user: isRegistered ? (window.loggedInUser || 'Registered User') : 'Anonymous',
-                  lat,
-                  lng,
-                }
-              }
-            }), 800);
+            console.warn("onEmergencyPin handler not provided to Location component. Navigating with state as fallback.");
+            navigate('/dashboard', {
+              state: { pinnedEmergency: emergencyDataForDashboard }
+            });
           }
+
+          // Save pin for FullMap.jsx
+          try {
+            const fullMapPinData = {
+              ...emergencyDataForDashboard, // Includes type, city, severity, user, lat, lng
+              timestamp: Date.now()
+            };
+            const storedPinsRaw = localStorage.getItem(FULLMAP_PINS_STORAGE_KEY);
+            let storedPins = storedPinsRaw ? JSON.parse(storedPinsRaw) : [];
+            // Filter out old pins before adding new one
+            const now = Date.now();
+            storedPins = storedPins.filter(p => p.timestamp && now - p.timestamp < THREE_DAYS_MS_LOCATION);
+            storedPins.push(fullMapPinData);
+            localStorage.setItem(FULLMAP_PINS_STORAGE_KEY, JSON.stringify(storedPins));
+          } catch (err) {
+            console.error("Failed to save emergency pin to localStorage for FullMap:", err);
+          }
+
         } catch (err) {
           alert('Failed to fetch location for emergency pin.');
         }

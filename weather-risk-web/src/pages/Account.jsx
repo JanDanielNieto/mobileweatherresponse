@@ -8,13 +8,7 @@ import { supabase } from "../supabase"; // Adjust path if needed
 export default function Account({ theme, setTheme, loggedInUser }) {
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [frequentLocationsData, setFrequentLocationsData] = useState([
-    { location: 'San Pedro City', visits: 15 },
-    { location: 'Makati', visits: 8 },
-    { location: 'Quezon City', visits: 12 },
-    { location: 'Manila', visits: 6 },
-    { location: 'Pasig', visits: 4 }
-  ]);
+  const [frequentLocationsData, setFrequentLocationsData] = useState([]); // Initialize as empty
   // Remove mock email generation, fetch from Supabase or use props
   const [newEmail, setNewEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -22,8 +16,18 @@ export default function Account({ theme, setTheme, loggedInUser }) {
   const [newUsername, setNewUsername] = useState('');
   const [message, setMessage] = useState('');
   const [userInfo, setUserInfo] = useState({ email: "", username: "" }); // Initialize with empty strings
-  const [emailPromptsActive, setEmailPromptsActive] = useState(false);
+  const [emailPromptsActive, setEmailPromptsActive] = useState(false); // Will be loaded from localStorage
   const [user, setUser] = useState(null);
+
+  // State for the new statistics
+  const [emergenciesByMonthData, setEmergenciesByMonthData] = useState([]);
+  const [emergencyLocationsPinnedStats, setEmergencyLocationsPinnedStats] = useState([]);
+
+  const EMERGENCY_PINS_STORAGE_KEY = 'fullMapEmergencyPins';
+  const PREDEFINED_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d0ed57', '#ff8042', '#00C49F', '#FFBB28', '#FF8042'];
+
+  const EMAIL_PROMPTS_STORAGE_KEY = 'emailPromptsActive';
+  const USER_EMAIL_STORAGE_KEY = 'userEmail'; // Key for storing user email
 
   useEffect(() => {
     const getUserData = async () => {
@@ -35,34 +39,33 @@ export default function Account({ theme, setTheme, loggedInUser }) {
       }
       setUser(currentUser);
       if (currentUser) {
+        const userEmail = currentUser.email || '';
+        const userName = currentUser.user_metadata?.username || loggedInUser || '';
         setUserInfo({
-          email: currentUser.email || '',
-          username: currentUser.user_metadata?.username || loggedInUser || ''
+          email: userEmail,
+          username: userName
         });
-        setNewUsername(currentUser.user_metadata?.username || loggedInUser || '');
-        setNewEmail(currentUser.email || '');
+        setNewUsername(userName);
+        setNewEmail(userEmail);
+
+        // Store email in localStorage
+        if (userEmail) {
+          localStorage.setItem(USER_EMAIL_STORAGE_KEY, userEmail);
+        }
+
+        // Load email prompt preference
+        const storedPreference = localStorage.getItem(EMAIL_PROMPTS_STORAGE_KEY);
+        if (storedPreference !== null) {
+          setEmailPromptsActive(JSON.parse(storedPreference));
+        }
       }
     };
     getUserData();
   }, [loggedInUser]); // Add loggedInUser as a dependency
 
-  // Mock data for charts
-  const emergenciesCalledData = [
-    { month: 'Jan', count: 2 },
-    { month: 'Feb', count: 4 },
-    { month: 'Mar', count: 1 },
-    { month: 'Apr', count: 6 },
-    { month: 'May', count: 3 },
-    { month: 'Jun', count: 5 }
-  ];
-
-  const emergencyLocationsPinnedData = [
-    { location: 'Hospital District', pins: 8, color: '#8884d8' },
-    { location: 'Fire Station Area', pins: 5, color: '#82ca9d' },
-    { location: 'Police Station', pins: 6, color: '#ffc658' },
-    { location: 'Flood Zone', pins: 10, color: '#ff7300' },
-    { location: 'Earthquake Risk', pins: 3, color: '#8dd1e1' }
-  ];
+  // REMOVE MOCK DATA DEFINITIONS
+  // const emergenciesCalledData = [...]; 
+  // const emergencyLocationsPinnedData = [...];
 
   const handleThemeChange = (newTheme) => {
     // Only call setTheme if the new theme is different from the current theme
@@ -103,6 +106,59 @@ export default function Account({ theme, setTheme, loggedInUser }) {
       setFrequentLocationsData([{ location: 'Error loading data', visits: 0 }]);
     }
   };
+
+  const loadEmergencyStatistics = () => {
+    try {
+      const storedPinsRaw = localStorage.getItem(EMERGENCY_PINS_STORAGE_KEY);
+      if (storedPinsRaw) {
+        const storedPins = JSON.parse(storedPinsRaw);
+
+        // Process for Emergencies Called (Monthly)
+        const monthlyCounts = storedPins.reduce((acc, pin) => {
+          if (pin.timestamp) {
+            const date = new Date(pin.timestamp);
+            // Format: "Jan 2023"
+            const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+            acc[monthYear] = (acc[monthYear] || 0) + 1;
+          }
+          return acc;
+        }, {});
+
+        const monthlyChartData = Object.entries(monthlyCounts)
+          .map(([month, count]) => ({ month, count }))
+          // Optional: sort by date if necessary, though object insertion order might be okay for recent months
+          .sort((a, b) => new Date(a.month) - new Date(b.month)); // Sort by date
+        
+        setEmergenciesByMonthData(monthlyChartData.length > 0 ? monthlyChartData : [{ month: 'No data', count: 0 }]);
+
+        // Process for Frequent Emergency Locations Pinned (Pie Chart)
+        const locationCounts = storedPins.reduce((acc, pin) => {
+          const locationKey = pin.city || 'Unknown Location'; // Use city from pin data
+          acc[locationKey] = (acc[locationKey] || 0) + 1;
+          return acc;
+        }, {});
+
+        const pieChartData = Object.entries(locationCounts)
+          .map(([location, pins], index) => ({
+            location,
+            pins,
+            color: PREDEFINED_COLORS[index % PREDEFINED_COLORS.length] // Cycle through predefined colors
+          }))
+          .sort((a, b) => b.pins - a.pins) // Sort by pin count descending
+          .slice(0, 10); // Take top 10 for pie chart clarity
+
+        setEmergencyLocationsPinnedStats(pieChartData.length > 0 ? pieChartData : [{ location: 'No data', pins: 0, color: '#cccccc' }]);
+      } else {
+        setEmergenciesByMonthData([{ month: 'No data', count: 0 }]);
+        setEmergencyLocationsPinnedStats([{ location: 'No data', pins: 0, color: '#cccccc' }]);
+      }
+    } catch (error) {
+      console.error("Error loading emergency statistics from localStorage:", error);
+      setEmergenciesByMonthData([{ month: 'Error loading', count: 0 }]);
+      setEmergencyLocationsPinnedStats([{ location: 'Error loading', pins: 0, color: '#cccccc' }]);
+    }
+  };
+
 
   // Update userInfo if loggedInUser changes (e.g., after login)
   // This useEffect is redundant due to the one above, consider merging or removing
@@ -245,7 +301,10 @@ export default function Account({ theme, setTheme, loggedInUser }) {
   };
 
   const toggleEmailPrompts = () => {
-    setEmailPromptsActive(!emailPromptsActive);
+    const newPreference = !emailPromptsActive;
+    setEmailPromptsActive(newPreference);
+    localStorage.setItem(EMAIL_PROMPTS_STORAGE_KEY, JSON.stringify(newPreference));
+    setMessage(newPreference ? "Email prompts activated." : "Email prompts deactivated.");
   };
 
   const closeModal = () => {
@@ -399,7 +458,8 @@ export default function Account({ theme, setTheme, loggedInUser }) {
            <h2 className={`text-2xl font-semibold mb-4 border-b ${borderColor} pb-2 ${textColor}`}>Analytics</h2>
            <button onClick={() => {
              setShowAnalytics(true);
-             loadFrequentLocationsChartData(); // Load data when modal is opened
+             loadFrequentLocationsChartData(); // Load data for frequent locations checked
+             loadEmergencyStatistics(); // Load data for emergency stats
            }}
                    className="bg-green-500 text-white px-5 py-2 rounded hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 mb-4">
              Show Statistics
@@ -420,7 +480,7 @@ export default function Account({ theme, setTheme, loggedInUser }) {
                 <h3 className={`text-lg font-semibold mb-4 ${textColor}`}>Emergencies Called (Monthly)</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={emergenciesCalledData}>
+                    <BarChart data={emergenciesByMonthData}> {/* UPDATED DATA SOURCE */}
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis />
@@ -431,7 +491,7 @@ export default function Account({ theme, setTheme, loggedInUser }) {
                 </div>
               </div>
 
-              {/* Frequent Locations Checked Chart */}
+              {/* Frequent Locations Checked Chart - REMAINS UNCHANGED */}
               <div className="mb-8">
                 <h3 className={`text-lg font-semibold mb-4 ${textColor}`}>Frequent Locations Checked</h3>
                 <div className="h-64">
@@ -454,19 +514,20 @@ export default function Account({ theme, setTheme, loggedInUser }) {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={emergencyLocationsPinnedData}
+                        data={emergencyLocationsPinnedStats} /* UPDATED DATA SOURCE */
                         dataKey="pins"
                         nameKey="location"
                         cx="50%"
                         cy="50%"
                         outerRadius={80}
-                        label={({location, pins}) => `${location}: ${pins}`}
+                        labelLine={false} // Optional: cleaner look
+                        label={({ location, pins, percent }) => `${location}: ${pins} (${(percent * 100).toFixed(0)}%)`} // Improved label
                       >
-                        {emergencyLocationsPinnedData.map((entry, index) => (
+                        {emergencyLocationsPinnedStats.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip formatter={(value, name, props) => [`${props.payload.pins} pins`, name]} /> {/* Custom tooltip */}
                     </PieChart>
                   </ResponsiveContainer>
                 </div>

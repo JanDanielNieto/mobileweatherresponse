@@ -40,3 +40,35 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Custom styles for Leaflet Geocoder in FullMap.jsx */
+#custom-geocoder-container .leaflet-control-geocoder-form input {
+  color: #000000; /* Dark text color for readability */
+  background-color: #fff; /* White background for the input */
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 100%; /* Make input take full width of its container */
+  box-sizing: border-box;
+}
+
+/* Ensure suggestions are visible if they also have styling issues */
+#custom-geocoder-container .leaflet-control-geocoder-alternatives {
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+#custom-geocoder-container .leaflet-control-geocoder-alternatives li {
+  padding: 8px 12px;
+  color: #333;
+  cursor: pointer;
+}
+
+#custom-geocoder-container .leaflet-control-geocoder-alternatives li:hover,
+#custom-geocoder-container .leaflet-control-geocoder-alternatives li.leaflet-control-geocoder-suggestion-selected {
+  background-color: #f0f0f0;
+}
