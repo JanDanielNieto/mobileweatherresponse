@@ -19,7 +19,7 @@ L.Icon.Default.mergeOptions({
 });
 
 // Accept context and onWeatherLocationPin prop
-export default function Location({ isRegistered, context, onWeatherLocationPin }) {
+export default function Location({ isRegistered, context, onWeatherLocationPin, onEmergencyPin }) {
   const navigate = useNavigate();
   const mapRef = useRef(null); // To store the map instance
   const [isPinning, setIsPinning] = useState(false); // To track pinning mode
@@ -151,7 +151,77 @@ export default function Location({ isRegistered, context, onWeatherLocationPin }
         }
         return;
       }
-      // Emergency pin logic untouched
+      // Emergency pin logic
+      if (context === 'addEmergency') {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        try {
+          // 1. Reverse geocode to get city/location
+          const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
+          const nominatimResp = await fetch(nominatimUrl, { headers: { 'User-Agent': 'weather-risk-web/1.0' } });
+          const nominatimData = await nominatimResp.json();
+          const city = nominatimData.address.city || nominatimData.address.town || nominatimData.address.village || nominatimData.address.county || 'Unknown Area';
+
+          // 2. Prompt for emergency type
+          const type = prompt('Enter emergency type (e.g., Flood, Fire, Earthquake):', 'Flood');
+          if (!type) {
+            setIsPinning(false);
+            mapRef.current.getContainer().style.cursor = '';
+            return;
+          }
+
+          // 3. Optionally prompt for severity/details
+          const severity = prompt('Enter severity (Low, Moderate, High):', 'Moderate');
+          const details = prompt('Enter details for this emergency:', '');
+
+          // 4. Place a marker for the new emergency
+          const emergencyIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', // Pin-shaped icon
+            iconSize: [36, 36],
+            iconAnchor: [18, 36],
+            popupAnchor: [0, -36]
+          });
+          const marker = L.marker([lat, lng], { icon: emergencyIcon })
+            .addTo(mapRef.current)
+            .bindPopup(`<b>${type}</b><br>${city}<br>Severity: ${severity}`)
+            .openPopup();
+
+          // 5. Pass the new emergency object to the Dashboard (parent) and go back to dashboard
+          if (typeof onEmergencyPin === 'function') {
+            onEmergencyPin({
+              type,
+              city,
+              severity,
+              details,
+              user: isRegistered ? (window.loggedInUser || 'Registered User') : 'Anonymous',
+              lat,
+              lng,
+            });
+            setTimeout(() => navigate('/dashboard'), 800); // Short delay so marker is visible before navigating
+          } else {
+            // Fallback: navigate to Emergency page with state
+            setTimeout(() => navigate('/dashboard', {
+              state: {
+                pinnedEmergency: {
+                  type,
+                  city,
+                  severity,
+                  details,
+                  user: isRegistered ? (window.loggedInUser || 'Registered User') : 'Anonymous',
+                  lat,
+                  lng,
+                }
+              }
+            }), 800);
+          }
+        } catch (err) {
+          alert('Failed to fetch location for emergency pin.');
+        }
+        setIsPinning(false);
+        mapRef.current.getContainer().style.cursor = '';
+        return;
+      }
+      // Fallback for other contexts, if needed
       alert(`Pinned for ${context} at ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`);
       setIsPinning(false); // Exit pinning mode
       mapRef.current.getContainer().style.cursor = ''; // Reset cursor
@@ -165,7 +235,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin }
         mapRef.current.getContainer().style.cursor = ''; // Ensure cursor is reset
       }
     };
-  }, [isRegistered, isPinning, context, mapRef, navigate, onWeatherLocationPin]);
+  }, [isRegistered, isPinning, context, mapRef, navigate, onWeatherLocationPin, onEmergencyPin]);
 
 
   const handlePinButtonClick = () => {
