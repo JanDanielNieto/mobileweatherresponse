@@ -4,6 +4,7 @@ import Weather from "./Weather";
 import Location from "./Location";
 import Emergency from "./Emergency";
 import MiniMap from "../components/MiniMap";
+import SeiaWeatherIcon from "../../public/SeiaWeather.png"; // Import the icon
 
 export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser }) {
   const [activeComponent, setActiveComponent] = useState(null);
@@ -36,6 +37,35 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
 
   // Function to handle pinned weather location from Location.jsx
   const handleWeatherLocationPin = (data) => {
+    // data contains { locationName, lat, lng, weatherData, addressDetails }
+    let city = "Unknown City";
+    if (data.addressDetails) {
+      city = data.addressDetails.city || data.addressDetails.town || data.addressDetails.village || data.addressDetails.county || data.locationName.split(',')[0] || "N/A";
+    } else if (data.locationName) {
+      const parts = data.locationName.split(',');
+      if (parts.length > 0) {
+        city = parts[0].trim(); // Take the first part as a fallback for city
+        if (parts.length > 1 && (parts[0].trim().toLowerCase() === "unnamed road" || parts[0].trim().match(/^\d/))) { // if first part is not a good city name
+          city = parts[1].trim(); // try the second part
+        }
+      } else {
+        city = data.locationName; // Full name if no comma
+      }
+    }
+
+    try {
+      const historyString = localStorage.getItem('frequentLocationsHistory');
+      let history = historyString ? JSON.parse(historyString) : [];
+      history.push({
+        city: city,
+        fullLocationName: data.locationName,
+        timestamp: new Date().toISOString()
+      });
+      localStorage.setItem('frequentLocationsHistory', JSON.stringify(history));
+    } catch (error) {
+      console.error("Error updating localStorage for frequent locations:", error);
+    }
+
     setPinnedWeatherData(data);
     setActiveComponent("weather");
     setActiveComponentContext("pinned"); // Optional: set a specific context
@@ -47,7 +77,8 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
       <div className="w-1/3 bg-gray-100 dark:bg-gray-800 p-8 flex flex-col justify-between">
         <div> {/* Container for top elements */}
           {/* New SeiaWeather Heading - Make it clickable */}
-          <div className="text-center mb-4 cursor-pointer" onClick={() => { setActiveComponent(null); setPinnedWeatherData(null); }}>
+          <div className="text-center mb-4 cursor-pointer flex items-center justify-center" onClick={() => { setActiveComponent(null); setPinnedWeatherData(null); }}>
+            <img src={SeiaWeatherIcon} alt="SeiaWeather Icon" className="h-10 w-10 mr-2" /> {/* Add icon here */}
             <h1 className="text-4xl font-bold text-blue-600 dark:text-blue-400 font-serif">SeiaWeather</h1>
           </div>
           <h1 className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-gray-100">

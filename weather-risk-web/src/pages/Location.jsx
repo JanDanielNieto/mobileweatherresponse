@@ -127,9 +127,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin }
               lat,
               lng,
               weatherData: meteoData,
-              // Include any other relevant data Weather.jsx might need from the pin
-              // For example, if you want to pass the full nominatimData for more address details:
-              // addressDetails: nominatimData.address
+              addressDetails: nominatimData.address // Pass the full address details
             });
           } else {
             // Fallback or error if the handler isn't provided, though it should be by Dashboard

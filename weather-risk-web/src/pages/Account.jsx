@@ -8,6 +8,13 @@ import { supabase } from "../supabase"; // Adjust path if needed
 export default function Account({ theme, setTheme, loggedInUser }) {
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [frequentLocationsData, setFrequentLocationsData] = useState([
+    { location: 'San Pedro City', visits: 15 },
+    { location: 'Makati', visits: 8 },
+    { location: 'Quezon City', visits: 12 },
+    { location: 'Manila', visits: 6 },
+    { location: 'Pasig', visits: 4 }
+  ]);
   // Remove mock email generation, fetch from Supabase or use props
   const [newEmail, setNewEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -49,14 +56,6 @@ export default function Account({ theme, setTheme, loggedInUser }) {
     { month: 'Jun', count: 5 }
   ];
 
-  const frequentLocationsData = [
-    { location: 'San Pedro City', visits: 15 },
-    { location: 'Makati', visits: 8 },
-    { location: 'Quezon City', visits: 12 },
-    { location: 'Manila', visits: 6 },
-    { location: 'Pasig', visits: 4 }
-  ];
-
   const emergencyLocationsPinnedData = [
     { location: 'Hospital District', pins: 8, color: '#8884d8' },
     { location: 'Fire Station Area', pins: 5, color: '#82ca9d' },
@@ -72,6 +71,36 @@ export default function Account({ theme, setTheme, loggedInUser }) {
       console.log("Theme changed to:", newTheme);
     } else {
       console.log("Theme is already:", newTheme);
+    }
+  };
+
+  const loadFrequentLocationsChartData = () => {
+    try {
+      const historyString = localStorage.getItem('frequentLocationsHistory');
+      if (historyString) {
+        const history = JSON.parse(historyString);
+        const counts = history.reduce((acc, curr) => {
+          const locationKey = curr.city || "Unknown";
+          acc[locationKey] = (acc[locationKey] || 0) + 1;
+          return acc;
+        }, {});
+
+        const chartData = Object.entries(counts)
+          .map(([location, visits]) => ({ location, visits }))
+          .sort((a, b) => b.visits - a.visits)
+          .slice(0, 10); // Top 10
+
+        if (chartData.length > 0) {
+          setFrequentLocationsData(chartData);
+        } else {
+          setFrequentLocationsData([{ location: 'No data yet', visits: 0 }]);
+        }
+      } else {
+        setFrequentLocationsData([{ location: 'No data yet', visits: 0 }]);
+      }
+    } catch (error) {
+      console.error("Error loading frequent locations data from localStorage:", error);
+      setFrequentLocationsData([{ location: 'Error loading data', visits: 0 }]);
     }
   };
 
@@ -368,7 +397,10 @@ export default function Account({ theme, setTheme, loggedInUser }) {
         {/* Analytics Section */}
         <div className={`${cardBg} shadow-lg rounded-lg p-6`}>
            <h2 className={`text-2xl font-semibold mb-4 border-b ${borderColor} pb-2 ${textColor}`}>Analytics</h2>
-           <button onClick={() => setShowAnalytics(true)}
+           <button onClick={() => {
+             setShowAnalytics(true);
+             loadFrequentLocationsChartData(); // Load data when modal is opened
+           }}
                    className="bg-green-500 text-white px-5 py-2 rounded hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 mb-4">
              Show Statistics
            </button>
