@@ -18,8 +18,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// Accept context prop
-export default function Location({ isRegistered, context }) {
+// Accept context and onWeatherLocationPin prop
+export default function Location({ isRegistered, context, onWeatherLocationPin }) {
   const navigate = useNavigate();
   const mapRef = useRef(null); // To store the map instance
   const [isPinning, setIsPinning] = useState(false); // To track pinning mode
@@ -40,7 +40,7 @@ export default function Location({ isRegistered, context }) {
 
 
     // Initialize the map
-    const map = L.map("map").setView([14.5995, 120.9842], 13);
+    const map = L.map("location-map-container").setView([14.5995, 120.9842], 13);
     mapRef.current = map;
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -116,24 +116,41 @@ export default function Location({ isRegistered, context }) {
           const locationName = nominatimData.display_name || `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
 
           // 2. Fetch weather data from Open-Meteo
-          const meteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`;
+          const meteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max&timezone=auto`;
           const meteoResp = await fetch(meteoUrl);
           const meteoData = await meteoResp.json();
 
-          // 3. Redirect to Weather page with data
-          navigate('/weather', {
-            state: {
+          // 3. Call onWeatherLocationPin with the data instead of navigating
+          if (onWeatherLocationPin) {
+            onWeatherLocationPin({
               locationName,
               lat,
               lng,
-              weatherData: meteoData
-            }
-          });
+              weatherData: meteoData,
+              // Include any other relevant data Weather.jsx might need from the pin
+              // For example, if you want to pass the full nominatimData for more address details:
+              // addressDetails: nominatimData.address
+            });
+          } else {
+            // Fallback or error if the handler isn't provided, though it should be by Dashboard
+            console.error('onWeatherLocationPin handler not provided to Location component');
+            // Optionally, navigate to /weather as a fallback if direct display isn't possible
+            navigate('/weather', {
+              state: {
+                locationName,
+                lat,
+                lng,
+                weatherData: meteoData
+              }
+            });
+          }
         } catch (err) {
           alert('Failed to fetch location or weather data.');
         }
         setIsPinning(false);
-        mapRef.current.getContainer().style.cursor = '';
+        if (mapRef.current) { // Check if mapRef.current is not null
+          mapRef.current.getContainer().style.cursor = '';
+        }
         return;
       }
       // Emergency pin logic untouched
@@ -150,7 +167,7 @@ export default function Location({ isRegistered, context }) {
         mapRef.current.getContainer().style.cursor = ''; // Ensure cursor is reset
       }
     };
-  }, [isRegistered, isPinning, context, mapRef, navigate]);
+  }, [isRegistered, isPinning, context, mapRef, navigate, onWeatherLocationPin]);
 
 
   const handlePinButtonClick = () => {
@@ -176,7 +193,7 @@ export default function Location({ isRegistered, context }) {
           {/* Ensure map container takes available space */}
           <div className="w-full flex-grow max-w-2xl h-[calc(100%-150px)] bg-gray-700 rounded-lg shadow-md mb-4"> {/* Adjusted height */}
             <div
-              id="map"
+              id="location-map-container"
               style={{ height: "100%", width: "100%" }}
               className="rounded-lg"
             ></div>

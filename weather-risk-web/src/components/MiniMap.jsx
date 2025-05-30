@@ -13,6 +13,10 @@ const MiniMap = () => {
   useEffect(() => {
     if (mapContainerRef.current && !mapInstanceRef.current) {
       const initializeMap = (lat, lon, zoom) => {
+        // Defensively clear _leaflet_id from the container before map initialization
+        if (mapContainerRef.current && mapContainerRef.current._leaflet_id) {
+          delete mapContainerRef.current._leaflet_id;
+        }
         const map = L.map(mapContainerRef.current, { zoomControl: false }).setView([lat, lon], zoom); // Disable default zoom control
         mapInstanceRef.current = map;
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

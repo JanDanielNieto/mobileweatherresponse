@@ -5,6 +5,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Account from "./pages/Account";
 import FullMap from "./pages/FullMap";
+import Weather from "./pages/Weather"; // Import the Weather component
 import './css/index.css';
 
 function App() {
@@ -65,6 +66,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard isRegistered={isRegistered} setIsRegistered={setIsRegistered} loggedInUser={loggedInUser} />} />
           <Route path="/account" element={<Account theme={theme} setTheme={setTheme} loggedInUser={loggedInUser} />} />
           <Route path="/map" element={<FullMap />} />
+          <Route path="/weather" element={<Weather />} /> {/* Add the route for Weather */}
         </Routes>
       </Router>
     </div>
