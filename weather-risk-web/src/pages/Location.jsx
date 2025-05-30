@@ -104,11 +104,39 @@ export default function Location({ isRegistered, context }) {
 
     mapRef.current.getContainer().style.cursor = 'crosshair';
 
-    const handleMapClick = (e) => {
-      console.log(`Pinning for context: ${context} at Lat: ${e.latlng.lat}, Lng: ${e.latlng.lng}`);
-      // Future:
-      // if (context === 'weather') { /* Update weather for this location */ }
-      // if (context === 'addEmergency' || context === 'viewEmergency') { /* Add/update emergency marker */ }
+    const handleMapClick = async (e) => {
+      if (context === 'weather') {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        try {
+          // 1. Reverse geocode to get location name
+          const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
+          const nominatimResp = await fetch(nominatimUrl, { headers: { 'User-Agent': 'weather-risk-web/1.0' } });
+          const nominatimData = await nominatimResp.json();
+          const locationName = nominatimData.display_name || `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+
+          // 2. Fetch weather data from Open-Meteo
+          const meteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`;
+          const meteoResp = await fetch(meteoUrl);
+          const meteoData = await meteoResp.json();
+
+          // 3. Redirect to Weather page with data
+          navigate('/weather', {
+            state: {
+              locationName,
+              lat,
+              lng,
+              weatherData: meteoData
+            }
+          });
+        } catch (err) {
+          alert('Failed to fetch location or weather data.');
+        }
+        setIsPinning(false);
+        mapRef.current.getContainer().style.cursor = '';
+        return;
+      }
+      // Emergency pin logic untouched
       alert(`Pinned for ${context} at ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`);
       setIsPinning(false); // Exit pinning mode
       mapRef.current.getContainer().style.cursor = ''; // Reset cursor
@@ -122,7 +150,7 @@ export default function Location({ isRegistered, context }) {
         mapRef.current.getContainer().style.cursor = ''; // Ensure cursor is reset
       }
     };
-  }, [isRegistered, isPinning, context, mapRef]);
+  }, [isRegistered, isPinning, context, mapRef, navigate]);
 
 
   const handlePinButtonClick = () => {
