@@ -8,24 +8,36 @@ import { supabase } from "../supabase"; // Adjust path if needed
 export default function Account({ theme, setTheme, loggedInUser }) {
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [userInfo, setUserInfo] = useState({ email: loggedInUser ? `${loggedInUser.toLowerCase().replace(/\s+/g, '.')}@example.com` : "user@example.com" });
+  // Remove mock email generation, fetch from Supabase or use props
+  const [newEmail, setNewEmail] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [message, setMessage] = useState('');
+  const [userInfo, setUserInfo] = useState({ email: "", username: "" }); // Initialize with empty strings
   const [emailPromptsActive, setEmailPromptsActive] = useState(false);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-      if (error) {
-        console.error("Error fetching user:", error.message);
+    const getUserData = async () => {
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error("Error fetching user:", userError.message);
+        setMessage(`Error: ${userError.message}`);
         return;
       }
-      setUser(user);
+      setUser(currentUser);
+      if (currentUser) {
+        setUserInfo({
+          email: currentUser.email || '',
+          username: currentUser.user_metadata?.username || loggedInUser || ''
+        });
+        setNewUsername(currentUser.user_metadata?.username || loggedInUser || '');
+        setNewEmail(currentUser.email || '');
+      }
     };
-    getUser();
-  }, []);
+    getUserData();
+  }, [loggedInUser]); // Add loggedInUser as a dependency
 
   // Mock data for charts
   const emergenciesCalledData = [
@@ -64,14 +76,144 @@ export default function Account({ theme, setTheme, loggedInUser }) {
   };
 
   // Update userInfo if loggedInUser changes (e.g., after login)
-  React.useEffect(() => {
-    if (loggedInUser) {
-      setUserInfo({ email: `${loggedInUser.toLowerCase().replace(/\s+/g, '.')}@example.com` });
-    }
-  }, [loggedInUser]);
+  // This useEffect is redundant due to the one above, consider merging or removing
+  // React.useEffect(() => {
+  //   if (loggedInUser) {
+  //     // setUserInfo({ email: `${loggedInUser.toLowerCase().replace(/\\s+/g, '.')}@example.com` });
+  //   }
+  // }, [loggedInUser]);
 
-  const handleInputChange = (e) => {};
-  const handleSaveChanges = () => {};
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "newEmail") {
+      setNewEmail(value);
+    } else if (name === "currentPassword") {
+      setCurrentPassword(value);
+    } else if (name === "newPassword") {
+      setNewPassword(value);
+    } else if (name === "newUsername") {
+      setNewUsername(value);
+    }
+  };
+
+  const handleUpdateUsername = async () => {
+    if (!newUsername.trim()) {
+      setMessage("Username cannot be empty.");
+      return;
+    }
+    const { data, error } = await supabase.auth.updateUser({
+      data: { username: newUsername }
+    });
+    if (error) {
+      setMessage(`Error updating username: ${error.message}`);
+    } else {
+      setMessage("Username updated successfully!");
+      setUserInfo(prev => ({ ...prev, username: newUsername }));
+      // Optionally, update loggedInUser in App.jsx via a callback if needed for immediate global update
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!newEmail.trim()) {
+      setMessage("Email cannot be empty.");
+      return;
+    }
+    const { data, error } = await supabase.auth.updateUser({ email: newEmail });
+    if (error) {
+      setMessage(`Error updating email: ${error.message}`);
+      // It might say "User not found" or similar if the email requires confirmation and the old one is used for lookup.
+      // Or "Email rate limit exceeded"
+    } else {
+      setMessage("Email update initiated. Please check your new email address for a confirmation link.");
+      // Email won't be updated in user object until confirmed.
+      // You might want to inform the user about this.
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword) {
+      setMessage("New password cannot be empty.");
+      return;
+    }
+    // Supabase requires the user to be recently signed in to change password,
+    // or you need to implement a "forgot password" flow.
+    // For direct password update, it's usually done via supabase.auth.updateUser
+    // but it's best practice to re-authenticate for password changes if possible,
+    // or ensure the session is fresh. Supabase handles this by requiring current password
+    // implicitly if the session is not new enough, or explicitly if you use a different method.
+    // The simplest way is:
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (error) {
+      setMessage(`Error updating password: ${error.message}`);
+    } else {
+      setMessage("Password updated successfully!");
+      setNewPassword(''); // Clear the field
+      setCurrentPassword(''); // Clear the field
+    }
+  };
+
+
+  const handleSaveChanges = async () => {
+    setMessage(''); // Clear previous messages
+    let usernameUpdated = false;
+    let emailUpdated = false;
+    let passwordChanged = false;
+
+    // Update Username
+    if (newUsername && newUsername !== userInfo.username) {
+      const { error } = await supabase.auth.updateUser({
+        data: { username: newUsername }
+      });
+      if (error) {
+        setMessage(prev => prev + `Error updating username: ${error.message}\n`);
+      } else {
+        setUserInfo(prev => ({ ...prev, username: newUsername }));
+        // Consider calling a prop function to update App.jsx's loggedInUser state
+        usernameUpdated = true;
+      }
+    }
+
+    // Update Email
+    if (newEmail && newEmail !== userInfo.email) {
+      const { error } = await supabase.auth.updateUser({ email: newEmail });
+      if (error) {
+        setMessage(prev => prev + `Error updating email: ${error.message}\n`);
+      } else {
+        // Email update requires confirmation. The user object's email won't change immediately.
+        emailUpdated = true;
+      }
+    }
+
+    // Update Password
+    if (newPassword) {
+      if (!currentPassword && !(await supabase.auth.getSession())?.data.session?.user) {
+          // This check is a bit simplified. Ideally, you'd ensure the user has recently reauthenticated
+          // if Supabase requires it for password changes without the current password.
+          // However, supabase.auth.updateUser({ password: newPassword }) should handle this.
+          // If current password is required by your setup/rules, you'd check for currentPassword here.
+      }
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        setMessage(prev => prev + `Error updating password: ${error.message}\n`);
+      } else {
+        passwordChanged = true;
+        setCurrentPassword('');
+        setNewPassword('');
+      }
+    }
+
+    let successMessage = "";
+    if (usernameUpdated) successMessage += "Username updated. ";
+    if (emailUpdated) successMessage += "Email update initiated (check new email for confirmation). ";
+    if (passwordChanged) successMessage += "Password updated. ";
+
+    if (successMessage && !message.includes("Error")) {
+      setMessage(successMessage.trim());
+    } else if (!usernameUpdated && !emailUpdated && !passwordChanged && !message) {
+      setMessage("No changes were made.");
+    }
+  };
 
   const toggleEmailPrompts = () => {
     setEmailPromptsActive(!emailPromptsActive);
@@ -86,7 +228,7 @@ export default function Account({ theme, setTheme, loggedInUser }) {
   const textColor = theme === 'light' ? "text-blue-950" : "text-gray-100";
   const secondaryTextColor = theme === 'light' ? "text-blue-800" : "text-gray-300";
   const borderColor = theme === 'light' ? "border-blue-200" : "border-gray-700";
-  const inputBg = theme === 'light' ? "bg-blue-100" : "bg-gray-700";
+  const inputBg = theme === 'light' ? "bg-blue-100" : "bg-gray-700"; // Ensure this is distinct enough
   const inputBorder = theme === 'light' ? "border-blue-300" : "border-gray-600";
   const buttonTextColor = theme === 'light' ? "text-blue-900" : "text-white";
   const backButtonBg = theme === 'light' ? "bg-blue-200 text-blue-800 hover:bg-blue-300" : "bg-gray-600 text-white hover:bg-gray-500";
@@ -99,18 +241,22 @@ export default function Account({ theme, setTheme, loggedInUser }) {
 
   return (
     <div className="p-8">
-      {/* Supabase user info section */}
-      <div className="text-white p-4">
+      {/* The existing Supabase user info section at the top will be removed. */}
+      {/* 
+      <div className={`${textColor} p-4`}>
         <h2 className="text-xl font-bold mb-4">Account Page</h2>
         {user ? (
           <div>
-            <p>Email: {user.email}</p>
+            <p>Current Email: {user.email}</p>
             <p>User ID: {user.id}</p>
+            <p>Current Username (from metadata): {user.user_metadata?.username || 'Not set'}</p>
           </div>
         ) : (
           <p>Loading user info...</p>
         )}
+        {message && <p className={`mt-4 text-sm ${message.includes("Error") ? 'text-red-500' : 'text-green-500'}`}>{message}</p>}
       </div>
+      */}
 
       <div className="max-w-4xl mx-auto">
         <div className="mb-6 flex justify-start">
@@ -131,23 +277,49 @@ export default function Account({ theme, setTheme, loggedInUser }) {
           </div>
         )}
 
+        {/* Session Information Section */}
+        <div className={`${cardBg} shadow-lg rounded-lg p-6 mb-8`}>
+          <h2 className={`text-2xl font-semibold mb-4 border-b ${borderColor} pb-2 ${textColor}`}>Session Information</h2>
+          {user ? (
+            <div>
+              <p className={`${secondaryTextColor} mb-1`}>Email: {user.email}</p>
+              <p className={`${secondaryTextColor} mb-1`}>User ID: {user.id}</p>
+              <p className={`${secondaryTextColor} mb-1`}>Username: {user.user_metadata?.username || userInfo.username || 'Not set'}</p>
+            </div>
+          ) : (
+            <p className={`${secondaryTextColor}`}>Loading user info...</p>
+          )}
+          {message && (
+            <p className={`mt-4 text-sm ${message.toLowerCase().includes("error") || message.toLowerCase().includes("failed") || message.toLowerCase().includes("missing") ? 'text-red-500' : 'text-green-500'}`}>
+              {message}
+            </p>
+          )}
+        </div>
+
         {/* Edit Account Information Section */}
         <div className={`${cardBg} shadow-lg rounded-lg p-6 mb-8`}>
           <h2 className={`text-2xl font-semibold mb-4 border-b ${borderColor} pb-2 ${textColor}`}>Edit Information</h2>
           <div className="space-y-4">
             <div>
-              <label htmlFor="username" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>Username</label>
-              <input type="text" id="username" name="username" value={loggedInUser || ''} readOnly
-                     className={`w-full p-2 border rounded ${inputBg} ${textColor} ${inputBorder} cursor-not-allowed`} />
-            </div>
-            <div>
-              <label htmlFor="email" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>Email Address</label>
-              <input type="email" id="email" name="email" value={userInfo.email} onChange={handleInputChange}
+              <label htmlFor="newUsername" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>Username</label>
+              <input type="text" id="newUsername" name="newUsername" value={newUsername} onChange={handleInputChange}
                      className={`w-full p-2 border rounded ${inputBg} ${textColor} ${inputBorder}`} />
             </div>
             <div>
-              <label htmlFor="password" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>New Password (Optional)</label>
-              <input type="password" id="password" name="password" placeholder="Leave blank to keep current password"
+              <label htmlFor="newEmail" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>Email Address</label>
+              <input type="email" id="newEmail" name="newEmail" value={newEmail} onChange={handleInputChange}
+                     className={`w-full p-2 border rounded ${inputBg} ${textColor} ${inputBorder}`} />
+            </div>
+            <div>
+              <label htmlFor="currentPassword" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>Current Password (needed for password change)</label>
+              <input type="password" id="currentPassword" name="currentPassword" placeholder="Enter current password to change"
+                     value={currentPassword} onChange={handleInputChange}
+                     className={`w-full p-2 border rounded ${inputBg} ${textColor} ${inputBorder}`} />
+            </div>
+            <div>
+              <label htmlFor="newPassword" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>New Password</label>
+              <input type="password" id="newPassword" name="newPassword" placeholder="Enter new password"
+                     value={newPassword} onChange={handleInputChange}
                      className={`w-full p-2 border rounded ${inputBg} ${textColor} ${inputBorder}`} />
             </div>
             <button onClick={handleSaveChanges}

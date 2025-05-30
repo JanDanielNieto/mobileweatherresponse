@@ -1,13 +1,14 @@
 // filepath: c:\Users\dropt\.vscode\mobileweatherresponse\weather-risk-web\src\pages\Location.jsx
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom"; // Import Link
 import FeaturesSlideshow from '../components/FeaturesSlideshow'; // Import the slideshow component
 import { supabase } from "../supabase"; // adjust path if needed
 
 // Supabase-powered registration form
-export default function Register() {
+export default function Register({ onRegister }) { // Added onRegister prop
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState(""); // Added username state
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
@@ -17,12 +18,25 @@ export default function Register() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: { // Added options to store username in user_metadata
+        data: {
+          username: username,
+        }
+      }
     });
 
     if (error) {
       setMessage(`Error: ${error.message}`);
     } else {
       setMessage("Registration successful! Check your email to confirm.");
+      if (data.user && data.user.user_metadata && data.user.user_metadata.username) {
+        onRegister(data.user.user_metadata.username); // Call onRegister with username
+      } else {
+        // Fallback if username is not in metadata for some reason, though it should be.
+        // Or handle cases where email verification might be pending.
+        // For now, we'll use the entered username as a fallback for immediate UI update.
+        onRegister(username);
+      }
       navigate("/dashboard"); // Navigate to dashboard on successful registration
     }
   };
@@ -33,7 +47,15 @@ export default function Register() {
       <div className="w-1/3 bg-gray-100 flex items-center justify-center p-8">
         <div className="bg-white p-8 rounded shadow-md w-full max-w-sm">
           <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Register</h1>
-          <form onSubmit={handleRegister} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4 flex flex-col items-center"> {/* Added flex flex-col items-center for button centering */}
+            <input
+              type="text" // Added username input
+              placeholder="Username"
+              className="w-full p-2 rounded bg-gray-800"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
             <input
               type="email"
               placeholder="Email"
@@ -52,12 +74,21 @@ export default function Register() {
             />
             <button
               type="submit"
-              className="bg-green-600 px-4 py-2 rounded hover:bg-green-700"
+              className="bg-green-600 px-4 py-2 rounded hover:bg-green-700 w-full" // Added w-full to make button full width if desired, or remove for auto width based on content
             >
               Register
             </button>
           </form>
-          {message && <p className="mt-4 text-sm text-yellow-400">{message}</p>}
+          {message && <p className="mt-4 text-sm text-yellow-400 text-center">{message}</p>} {/* Centered message */}
+
+          <div className="mt-4 text-center"> {/* Added text-center for the link */}
+            <p className="text-sm text-gray-600">
+              Already have an account?{" "}
+              <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+                Login
+              </Link>
+            </p>
+          </div>
 
           {/* Divider */}
           <div className="flex items-center mb-4">
