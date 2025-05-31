@@ -26,7 +26,6 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
   const navigate = useNavigate();
   const mapRef = useRef(null); // To store the map instance
   const [isPinning, setIsPinning] = useState(false); // To track pinning mode
-
   useEffect(() => {
     if (!isRegistered) return;
     if (mapRef.current && !isPinning) { // If map exists and not entering pinning mode, do nothing
@@ -41,43 +40,73 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
         return; // Don't reinitialize map
     }
 
+    // Add a small delay to ensure DOM is ready and avoid race conditions
+    const initializeMap = () => {
+      try {
+        const mapContainer = document.getElementById("location-map-container");
+        if (!mapContainer) {
+          console.error("Map container not found");
+          return;
+        }
 
-    // Initialize the map
-    const map = L.map("location-map-container").setView([14.5995, 120.9842], 13);
-    mapRef.current = map;
+        // Defensively clear _leaflet_id from the container before map initialization
+        if (mapContainer._leaflet_id) {
+          delete mapContainer._leaflet_id;
+        }
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19
-    }).addTo(map);
+        // Initialize the map
+        const map = L.map("location-map-container", {
+          zoomControl: true,
+          attributionControl: true
+        }).setView([14.5995, 120.9842], 13);
+        mapRef.current = map;
 
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19
+        }).addTo(map);
 
-    // Add heatmap layer with sample data
-    const heatData = [
-      [14.5995, 120.9842, 0.5],
-      [14.6005, 120.9820, 0.8],
-      [14.5980, 120.9860, 0.4]
-    ];
-    L.heatLayer(heatData, { radius: 25 }).addTo(map);
+        // Add heatmap layer with sample data (check if L.heatLayer is available)
+        if (L.heatLayer) {
+          const heatData = [
+            [14.5995, 120.9842, 0.5],
+            [14.6005, 120.9820, 0.8],
+            [14.5980, 120.9860, 0.4]
+          ];
+          L.heatLayer(heatData, { radius: 25 }).addTo(map);
+        }
 
-    // Get user's location and add a marker
-    map.locate({ setView: true, maxZoom: 16 });
+        // Get user's location and add a marker
+        map.locate({ setView: true, maxZoom: 16 });
 
-    map.on('locationfound', function(e) {
-      L.marker(e.latlng)
-        .addTo(map)
-        .bindPopup("You are here").openPopup();
-    });
+        map.on('locationfound', function(e) {
+          L.marker(e.latlng)
+            .addTo(map)
+            .bindPopup("You are here").openPopup();
+        });
 
-    map.on('locationerror', function() {
-      alert("Location access denied.");
-    });
+        map.on('locationerror', function() {
+          console.warn("Location access denied or unavailable");
+          // Don't show alert, just log the warning
+        });
 
+      } catch (error) {
+        console.error('Error initializing map:', error);
+      }
+    };
+
+    // Use setTimeout to ensure DOM is ready
+    const timeoutId = setTimeout(initializeMap, 100);
 
     // Cleanup map instance on component unmount
     return () => {
+      clearTimeout(timeoutId);
       if (mapRef.current) {
-        mapRef.current.remove();
+        try {
+          mapRef.current.remove();
+        } catch (error) {
+          console.error('Error removing map:', error);
+        }
         mapRef.current = null;
       }
     };
@@ -97,11 +126,12 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
     const handleMapClick = async (e) => {
       if (context === 'weather') {
         const lat = e.latlng.lat;
-        const lng = e.latlng.lng;
-        try {
+        const lng = e.latlng.lng;        try {
           // 1. Reverse geocode to get location name
           const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
-          const nominatimResp = await fetch(nominatimUrl, { headers: { 'User-Agent': 'weather-risk-web/1.0' } });
+          const nominatimResp = await fetch(nominatimUrl, { 
+            headers: { 'User-Agent': 'weather-risk-web/1.0' } 
+          });
           const nominatimData = await nominatimResp.json();
           const locationName = nominatimData.display_name || `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
 
@@ -131,12 +161,11 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
                 weatherData: meteoData
               }
             });
-          }
-        } catch (err) {
-          alert('Failed to fetch location or weather data.');
-        }
-        setIsPinning(false);
-        if (mapRef.current) { // Check if mapRef.current is not null
+          }        } catch (err) {
+          console.error('Failed to fetch location or weather data:', err);
+          alert('Failed to fetch location or weather data. Please try again.');
+        }        setIsPinning(false);
+        if (mapRef.current && mapRef.current.getContainer()) { // Check if mapRef.current and container exist
           mapRef.current.getContainer().style.cursor = '';
         }
         return;
@@ -144,11 +173,12 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
       // Emergency pin logic
       if (context === 'addEmergency') {
         const lat = e.latlng.lat;
-        const lng = e.latlng.lng;
-        try {
+        const lng = e.latlng.lng;        try {
           // 1. Reverse geocode to get city/location
           const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
-          const nominatimResp = await fetch(nominatimUrl, { headers: { 'User-Agent': 'weather-risk-web/1.0' } });
+          const nominatimResp = await fetch(nominatimUrl, { 
+            headers: { 'User-Agent': 'weather-risk-web/1.0' } 
+          });
           const nominatimData = await nominatimResp.json();
           const city = nominatimData.address.city || nominatimData.address.town || nominatimData.address.village || nominatimData.address.county || 'Unknown Area';
 
@@ -211,10 +241,9 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
             localStorage.setItem(FULLMAP_PINS_STORAGE_KEY, JSON.stringify(storedPins));
           } catch (err) {
             console.error("Failed to save emergency pin to localStorage for FullMap:", err);
-          }
-
-        } catch (err) {
-          alert('Failed to fetch location for emergency pin.');
+          }        } catch (err) {
+          console.error('Failed to fetch location for emergency pin:', err);
+          alert('Failed to fetch location for emergency pin. Please try again.');
         }
         setIsPinning(false);
         mapRef.current.getContainer().style.cursor = '';

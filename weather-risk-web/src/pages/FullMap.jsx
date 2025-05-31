@@ -54,138 +54,180 @@ export default function FullMap() {
       // If we were to keep our custom input, we'd call handleSearch() here.
     }
   };
-
   useEffect(() => {
     const { state } = location; // Destructure state from location
 
     // Initialize map and geocoder only once, or if mapRef is not set
     if (!mapRef.current) {
-      let initialView = [14.5995, 120.9842]; // Default to Manila
-      let initialZoom = 13;
+      // Add a small delay to ensure DOM is ready and avoid race conditions
+      const initializeMap = () => {
+        try {
+          const mapContainer = document.getElementById("map");
+          if (!mapContainer) {
+            console.error("Map container not found");
+            return;
+          }
 
-      if (state && state.lat != null && state.lng != null) {
-        initialView = [state.lat, state.lng];
-        initialZoom = state.zoom || 13;
-      }
+          // Defensively clear _leaflet_id from the container before map initialization
+          if (mapContainer._leaflet_id) {
+            delete mapContainer._leaflet_id;
+          }
 
-      const map = L.map("map").setView(initialView, initialZoom);
-      mapRef.current = map;
+          let initialView = [14.5995, 120.9842]; // Default to Manila
+          let initialZoom = 13;
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 19
-      }).addTo(map);
+          if (state && state.lat != null && state.lng != null) {
+            initialView = [state.lat, state.lng];
+            initialZoom = state.zoom || 13;
+          }
 
-      // Add Geocoder control
-      const geocoder = L.Control.geocoder({
-        defaultMarkGeocode: true,
-        placeholder: "Search for a location...",
-        collapsed: false,
-        errorMessage: "Nothing found.",
-        geocoder: L.Control.Geocoder.nominatim()
-      }).on('markgeocode', function(e) {
-        map.setView(e.geocode.center, 16); // Zoom closer on geocode
-        setSearchQuery(e.geocode.name);
-      }).addTo(map); // Add to map initially to ensure it's fully initialized
-      geocoderControlRef.current = geocoder;
+          const map = L.map("map", {
+            zoomControl: true,
+            attributionControl: true
+          }).setView(initialView, initialZoom);
+          mapRef.current = map;
 
-      // Move geocoder to custom container
-      if (geocoderContainerRef.current && geocoder.getContainer()) {
-        geocoderContainerRef.current.appendChild(geocoder.getContainer());
-      }
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+          }).addTo(map);
 
-      // Marker Logic: Handles pinned location, user's current location, or Manila as a fallback.
-      if (state && state.lat != null && state.lng != null) {
-        // Case 1: Location passed via state (e.g., from Emergency page)
-        // The map's initial view is already set to this location by setView above.
-        L.marker([state.lat, state.lng])
-          .addTo(map)
-          .bindPopup(state.popupMessage || 'Pinned Location')
-          .openPopup();
-      } else {
-        // Case 2: No specific location passed via state. Try to get user's current location.
-        // The map's initial view is default (Manila), map.locate will try to update it.
-        map.locate({ setView: true, maxZoom: 16 }); // setView: true will pan to user's location if found.
+          // Add Geocoder control (check if available)
+          if (L.Control.geocoder) {
+            const geocoder = L.Control.geocoder({
+              defaultMarkGeocode: true,
+              placeholder: "Search for a location...",
+              collapsed: false,
+              errorMessage: "Nothing found.",
+              geocoder: L.Control.Geocoder.nominatim()
+            }).on('markgeocode', function(e) {
+              map.setView(e.geocode.center, 16); // Zoom closer on geocode
+              setSearchQuery(e.geocode.name);
+            }).addTo(map); // Add to map initially to ensure it's fully initialized
+            geocoderControlRef.current = geocoder;
 
-        map.on('locationfound', function(e) {
-          // User's location found
-          L.marker(e.latlng)
-            .addTo(map)
-            .bindPopup("You are here")
-            .openPopup();
-          // map view is handled by map.locate's setView: true option
-        });
-
-        map.on('locationerror', function() {
-          // User's location not found or access denied
-          // alert("Location access denied. Showing default location (Manila)."); // Optional: inform user
-          L.marker([14.5995, 120.9842]) // Manila coordinates
-            .addTo(map)
-            .bindPopup('Manila, Philippines')
-            .openPopup();
-          // Ensure map view is set to Manila if locate failed and wasn't already Manila
-          // (initialView was Manila, but locate might have briefly changed it before erroring, though unlikely)
-          map.setView([14.5995, 120.9842], 13);
-        });
-      }
-
-      // Add heatmap layer (existing logic)
-      const heatData = [
-        [14.5995, 120.9842, 0.5],
-        [14.6095, 120.9842, 0.8],
-        [14.6195, 120.9742, 0.4],
-        [14.5895, 120.9642, 0.9]
-      ];
-      L.heatLayer(heatData, {
-        radius: 25,
-        blur: 15,
-        maxZoom: 17
-      }).addTo(map);
-      
-      // --- Weather API Integration ---
-      const latitude = 14.3165; // Carmona latitude
-      const longitude = 121.0574; // Carmona longitude
-
-      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m`)
-        .then(response => response.json())
-        .then(data => {
-          console.log('Hourly Temperature Forecast:', data.hourly.temperature_2m);
-        })
-        .catch(error => {
-          console.error('Error fetching weather data:', error);
-        });
-      // --- End Weather API Integration ---
-
-      // Load and display emergency pins from localStorage
-      try {
-        const storedPinsRaw = localStorage.getItem(FULLMAP_PINS_STORAGE_KEY_FM);
-        if (storedPinsRaw) {
-          let storedPins = JSON.parse(storedPinsRaw);
-          const now = Date.now();
-          const validPins = storedPins.filter(
-            (pin) => pin.timestamp && now - pin.timestamp < THREE_DAYS_MS_FM
-          );
-
-          localStorage.setItem(FULLMAP_PINS_STORAGE_KEY_FM, JSON.stringify(validPins));
-
-          const emergencyIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
-            iconSize: [36, 36],
-            iconAnchor: [18, 36],
-            popupAnchor: [0, -36]
-          });
-
-          validPins.forEach(pin => {
-            if (pin.lat != null && pin.lng != null) {
-              L.marker([pin.lat, pin.lng], { icon: emergencyIcon })
-                .addTo(map)
-                .bindPopup(`<b>${pin.type || 'N/A'}</b><br>Location: ${pin.city || 'N/A'}<br>Severity: ${pin.severity || 'N/A'}<br>User: ${pin.user || 'N/A'}`);
+            // Move geocoder to custom container
+            if (geocoderContainerRef.current && geocoder.getContainer()) {
+              geocoderContainerRef.current.appendChild(geocoder.getContainer());
             }
-          });
+          } else {
+            console.warn("Leaflet geocoder control not available");
+          }
+
+          // Marker Logic: Handles pinned location, user's current location, or Manila as a fallback.
+          if (state && state.lat != null && state.lng != null) {
+            // Case 1: Location passed via state (e.g., from Emergency page)
+            // The map's initial view is already set to this location by setView above.
+            L.marker([state.lat, state.lng])
+              .addTo(map)
+              .bindPopup(state.popupMessage || 'Pinned Location')
+              .openPopup();
+          } else {
+            // Case 2: No specific location passed via state. Try to get user's current location.
+            // The map's initial view is default (Manila), map.locate will try to update it.
+            map.locate({ setView: true, maxZoom: 16 }); // setView: true will pan to user's location if found.
+
+            map.on('locationfound', function(e) {
+              // User's location found
+              L.marker(e.latlng)
+                .addTo(map)
+                .bindPopup("You are here")
+                .openPopup();
+              // map view is handled by map.locate's setView: true option
+            });
+
+            map.on('locationerror', function() {
+              // User's location not found or access denied
+              console.warn("Location access denied or unavailable. Showing default location (Manila).");
+              L.marker([14.5995, 120.9842]) // Manila coordinates
+                .addTo(map)
+                .bindPopup('Manila, Philippines')
+                .openPopup();
+              // Ensure map view is set to Manila if locate failed and wasn't already Manila
+              // (initialView was Manila, but locate might have briefly changed it before erroring, though unlikely)
+              map.setView([14.5995, 120.9842], 13);
+            });
+          }
+
+          // Add heatmap layer (check if L.heatLayer is available)
+          if (L.heatLayer) {
+            const heatData = [
+              [14.5995, 120.9842, 0.5],
+              [14.6095, 120.9842, 0.8],
+              [14.6195, 120.9742, 0.4],
+              [14.5895, 120.9642, 0.9]
+            ];
+            L.heatLayer(heatData, {
+              radius: 25,
+              blur: 15,
+              maxZoom: 17
+            }).addTo(map);
+          }
+          
+          // --- Weather API Integration ---
+          const latitude = 14.3165; // Carmona latitude
+          const longitude = 121.0574; // Carmona longitude
+
+          fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m`)
+            .then(response => response.json())
+            .then(data => {
+              console.log('Hourly Temperature Forecast:', data.hourly.temperature_2m);
+            })
+            .catch(error => {
+              console.error('Error fetching weather data:', error);
+            });
+          // --- End Weather API Integration ---
+
+          // Load and display emergency pins from localStorage
+          try {
+            const storedPinsRaw = localStorage.getItem(FULLMAP_PINS_STORAGE_KEY_FM);
+            if (storedPinsRaw) {
+              let storedPins = JSON.parse(storedPinsRaw);
+              const now = Date.now();
+              const validPins = storedPins.filter(
+                (pin) => pin.timestamp && now - pin.timestamp < THREE_DAYS_MS_FM
+              );
+
+              localStorage.setItem(FULLMAP_PINS_STORAGE_KEY_FM, JSON.stringify(validPins));
+
+              const emergencyIcon = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+                iconSize: [36, 36],
+                iconAnchor: [18, 36],
+                popupAnchor: [0, -36]
+              });
+
+              validPins.forEach(pin => {
+                if (pin.lat != null && pin.lng != null) {
+                  L.marker([pin.lat, pin.lng], { icon: emergencyIcon })
+                    .addTo(map)
+                    .bindPopup(`<b>${pin.type || 'N/A'}</b><br>Location: ${pin.city || 'N/A'}<br>Severity: ${pin.severity || 'N/A'}<br>User: ${pin.user || 'N/A'}`);
+                }
+              });
+            }
+          } catch (error) {
+            console.error("Failed to load or display emergency pins from localStorage on FullMap:", error);
+          }
+
+        } catch (error) {
+          console.error('Error initializing FullMap:', error);
         }
-      } catch (error) {
-        console.error("Failed to load or display emergency pins from localStorage on FullMap:", error);
-      }
+      };
+
+      // Use setTimeout to ensure DOM is ready
+      const timeoutId = setTimeout(initializeMap, 100);
+
+      return () => {
+        clearTimeout(timeoutId);
+        if (mapRef.current) {
+          try {
+            mapRef.current.remove();
+          } catch (error) {
+            console.error('Error removing FullMap:', error);
+          }
+          mapRef.current = null;
+        }
+      };
 
     } else { // Map already initialized, handle view changes if any
       if (state && state.lat != null && state.lng != null) {

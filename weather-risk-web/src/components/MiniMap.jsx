@@ -1,72 +1,102 @@
 import React, { useEffect, useState, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import markerIconPng from 'leaflet/dist/images/marker-icon.png';
-import { Icon } from 'leaflet';
+
+// Import marker assets
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
+// Fix Leaflet's default icon paths
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+});
 
 const MiniMap = () => {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null); // To store the map instance
   const [currentCityName, setCurrentCityName] = useState("Fetching location...");
   const [fullAddress, setFullAddress] = useState(""); // To store the full address for tooltip or other uses
-
   useEffect(() => {
-    if (mapContainerRef.current && !mapInstanceRef.current) {
-      const initializeMap = (lat, lon, zoom) => {
-        // Defensively clear _leaflet_id from the container before map initialization
-        if (mapContainerRef.current && mapContainerRef.current._leaflet_id) {
-          delete mapContainerRef.current._leaflet_id;
-        }
-        const map = L.map(mapContainerRef.current, { zoomControl: false }).setView([lat, lon], zoom); // Disable default zoom control
-        mapInstanceRef.current = map;
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          maxZoom: 18, // Slightly lower maxZoom for a mini-map feel
-        }).addTo(map);
-        // Add a subtle zoom control if desired, or remove for cleaner look
-        // L.control.zoom({ position: 'bottomright' }).addTo(map);
-        return map;
-      };
-
-      const extractCity = (address) => {
-        if (!address) return "Location name not found";
-        return address.city || address.town || address.village || address.hamlet || "City not found";
-      };
-
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            const map = initializeMap(latitude, longitude, 12); // Zoom out a bit for city view
-            L.marker([latitude, longitude], {
-              icon: new Icon({ iconUrl: markerIconPng, iconSize: [25, 41], iconAnchor: [12, 41] })
-            }).addTo(map);
-
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`)
-              .then(response => response.json())
-              .then(data => {
-                setFullAddress(data?.display_name || "Full address not found");
-                setCurrentCityName(extractCity(data?.address));
-              })
-              .catch(() => {
-                setFullAddress("Could not fetch full address");
-                setCurrentCityName("Could not fetch city name");
-              });
-          },
-          () => { // Geolocation failed
-            setCurrentCityName("Default View");
-            setFullAddress("Unable to retrieve your location. Showing default map of London.");
-            initializeMap(51.505, -0.09, 9); // Default view (e.g., London)
+    // Add a small delay to ensure DOM is ready
+    const initMap = () => {
+      if (mapContainerRef.current && !mapInstanceRef.current) {
+        const initializeMap = (lat, lon, zoom) => {
+          // Defensively clear _leaflet_id from the container before map initialization
+          if (mapContainerRef.current && mapContainerRef.current._leaflet_id) {
+            delete mapContainerRef.current._leaflet_id;
           }
-        );
-      } else {
-        setCurrentCityName("Default View");
-        setFullAddress("Geolocation is not supported. Showing default map of London.");
-        initializeMap(51.505, -0.09, 9); // Default view
+          try {
+            const map = L.map(mapContainerRef.current, { 
+              zoomControl: false,
+              attributionControl: true
+            }).setView([lat, lon], zoom);
+            
+            mapInstanceRef.current = map;
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+              maxZoom: 18,
+            }).addTo(map);
+            
+            return map;
+          } catch (error) {
+            console.error('Error initializing map:', error);
+            setCurrentCityName("Map loading failed");
+            return null;
+          }
+        };
+
+        const extractCity = (address) => {
+          if (!address) return "Location name not found";
+          return address.city || address.town || address.village || address.hamlet || "City not found";
+        };
+
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords;
+              const map = initializeMap(latitude, longitude, 12);
+              
+              if (map) {
+                L.marker([latitude, longitude]).addTo(map);
+
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`, {
+                  headers: { 'User-Agent': 'weather-risk-web/1.0' }
+                })
+                  .then(response => response.json())
+                  .then(data => {
+                    setFullAddress(data?.display_name || "Full address not found");
+                    setCurrentCityName(extractCity(data?.address));
+                  })
+                  .catch(() => {
+                    setFullAddress("Could not fetch full address");
+                    setCurrentCityName("Could not fetch city name");
+                  });
+              }
+            },
+            () => { // Geolocation failed
+              setCurrentCityName("Default View");
+              setFullAddress("Unable to retrieve your location. Showing default map of London.");
+              initializeMap(51.505, -0.09, 9); // Default view (e.g., London)
+            }
+          );
+        } else {
+          setCurrentCityName("Default View");
+          setFullAddress("Geolocation is not supported. Showing default map of London.");
+          initializeMap(51.505, -0.09, 9); // Default view
+        }
       }
-    }
+    };
+
+    // Small delay to ensure DOM is ready
+    const timeoutId = setTimeout(initMap, 100);
 
     return () => {
+      clearTimeout(timeoutId);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
