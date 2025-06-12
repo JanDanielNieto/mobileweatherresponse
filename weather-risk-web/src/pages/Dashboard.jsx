@@ -266,15 +266,59 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
       </div>
 
       {/* Right Content Area - Now uses flex-col to position welcome message at the bottom */}
-      <div className={`w-2/3 bg-blue-50 dark:bg-[#242424] text-blue-900 dark:text-[rgba(255,255,255,0.87)] p-8 flex flex-col transition-colors duration-300`}>
+      <div className={`w-2/3 bg-blue-50 dark:bg-[#242424] text-blue-900 dark:text-[rgba(255,255,255,0.87)] p-8 flex flex-col transition-colors duration-300 relative`}> {/* Added relative for MiniMap positioning */}
         {/* Main dynamic content area - takes up available space */}
-        <div className="flex-grow flex items-center justify-center">
-          {isFetchingLiveWeather && <p className="text-lg">Fetching your location and weather...</p>}
-          {!isFetchingLiveWeather && activeComponent === null && <MiniMap />}
+        <div className="flex-grow flex flex-col items-center justify-start pt-8 overflow-y-auto"> {/* MODIFIED: justify-start, pt-8, overflow-y-auto */}
+          {isFetchingLiveWeather && <p className="text-lg px-4">Fetching your location and weather...</p>}
+          {!isFetchingLiveWeather && activeComponent === null && (
+            <div className="text-justify p-4 w-full"> {/* MODIFIED: Removed max-w-2xl, max-h-[60vh] and added w-full */}
+              <h2 className="text-3xl font-bold mb-6 text-blue-700 dark:text-blue-300">Welcome to SeiaWeather!</h2>
+              
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold mb-2 text-gray-800 dark:text-gray-200">Emergencies Qualified for the system:</h3>
+                <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
+                  <li>Floods</li>
+                  <li>Earthquakes</li>
+                  <li>Landslides</li>
+                  <li>Fires</li>
+                  
+                </ul>
+              </div>
+
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold mb-2 text-gray-800 dark:text-gray-200">Emergencies not listed for the system:</h3>
+                <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
+                  <li>Vehicular Accidents</li>
+                  <li>Medical Accidents</li>
+                  <li>Missing Person Incidents</li>
+                  <li>Criminal Incidents</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="text-xl font-semibold mb-2 text-red-600 dark:text-red-400">Philippine Emergency Hotlines:</h3>
+                <ul className="list-none space-y-1 text-gray-700 dark:text-gray-300">
+                  <li><strong>National Emergency Hotline:</strong> 911</li>
+                  <li><strong>Philippine Red Cross:</strong> 143</li>
+                  <li><strong>NDRRMC (National Disaster Risk Reduction and Management Council):</strong> (02) 8911-5061 to 65, (02) 8912-2665, (02) 8912-5668</li>
+                  <li><strong>BFP (Bureau of Fire Protection):</strong> (02) 8426-0219, (02) 8426-0246</li>
+                  <li><strong>PAGASA (Weather Bureau):</strong> (02) 8284-0800</li>
+                </ul>
+                <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">In case of immediate danger, always contact local authorities or dial 911 first.</p>
+              </div>
+            </div>
+          )}
           {!isFetchingLiveWeather && activeComponent === "weather" && <Weather initialData={pinnedWeatherData} clearInitialData={handleClearPinnedData} onSelectLocation={(item, context) => showLocation(item, context)} />}
           {!isFetchingLiveWeather && activeComponent === "location" && <Location isRegistered={isRegistered} context={activeComponentContext} onWeatherLocationPin={handleWeatherLocationPin} onEmergencyPin={handleEmergencyPin} loggedInUser={loggedInUser} />}
           {!isFetchingLiveWeather && activeComponent === "emergency" && <Emergency onSelectEmergency={(item, context) => showLocation(item, context)} isRegistered={isRegistered} navigate={navigate} pinnedEmergency={newlyPinnedEmergency} onPinnedEmergencyConsumed={handlePinnedEmergencyConsumed} />}
         </div>
+
+        {/* MiniMap positioned in the corner, shown only when intro is visible */}
+        {!isFetchingLiveWeather && activeComponent === null && (
+          <div className="absolute bottom-8 right-8 w-64 h-64 shadow-xl rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700">
+            <MiniMap />
+          </div>
+        )}
 
         {/* Welcome Message - at the bottom of this right content area */}
         {loggedInUser && (

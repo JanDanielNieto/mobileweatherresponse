@@ -23,6 +23,14 @@ const THREE_DAYS_MS_LOCATION = 3 * 24 * 60 * 60 * 1000; // For consistency
 
 // Accept context and onWeatherLocationPin prop
 export default function Location({ isRegistered, context, onWeatherLocationPin, onEmergencyPin, loggedInUser }) {
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [emergencyLat, setEmergencyLat] = useState(null);
+  const [emergencyLng, setEmergencyLng] = useState(null);
+  const [emergencyCity, setEmergencyCity] = useState('');
+  const [emergencyType, setEmergencyType] = useState('Flood'); // Default value
+  const [emergencySeverity, setEmergencySeverity] = useState('Moderate'); // Default value
+  const [emergencyDetails, setEmergencyDetails] = useState('');
+
   const navigate = useNavigate();
   const mapRef = useRef(null); // To store the map instance
   const [isPinning, setIsPinning] = useState(false); // To track pinning mode
@@ -115,7 +123,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
   // Effect for handling map clicks when pinning
   useEffect(() => {
     if (!isRegistered || !isPinning || !mapRef.current) {
-      if(mapRef.current && mapRef.current.getContainer().style.cursor === 'crosshair') {
+      if(mapRef.current && mapRef.current.getContainer() && mapRef.current.getContainer().style.cursor === 'crosshair') { // Added null check for getContainer
         mapRef.current.getContainer().style.cursor = ''; // Reset cursor if not pinning
       }
       return;
@@ -173,81 +181,34 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
       // Emergency pin logic
       if (context === 'addEmergency') {
         const lat = e.latlng.lat;
-        const lng = e.latlng.lng;        try {
+        const lng = e.latlng.lng;
+        try {
           // 1. Reverse geocode to get city/location
           const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
-          const nominatimResp = await fetch(nominatimUrl, { 
-            headers: { 'User-Agent': 'weather-risk-web/1.0' } 
+          const nominatimResp = await fetch(nominatimUrl, {
+            headers: { 'User-Agent': 'weather-risk-web/1.0' }
           });
           const nominatimData = await nominatimResp.json();
           const city = nominatimData.address.city || nominatimData.address.town || nominatimData.address.village || nominatimData.address.county || 'Unknown Area';
 
-          // 2. Prompt for emergency type
-          const type = prompt('Enter emergency type (e.g., Flood, Fire, Earthquake):', 'Flood');
-          if (!type) {
-            setIsPinning(false);
-            mapRef.current.getContainer().style.cursor = '';
-            return;
-          }
+          // Store lat, lng, city and show modal instead of prompting
+          setEmergencyLat(lat);
+          setEmergencyLng(lng);
+          setEmergencyCity(city);
+          setShowEmergencyModal(true);
+          // No longer prompting here, so remove old prompt logic.
+          // The rest of the logic (marker placement, data saving) will be in handleEmergencySubmit
 
-          // 3. Optionally prompt for severity/details
-          const severity = prompt('Enter severity (Low, Moderate, High):', 'Moderate');
-          const details = prompt('Enter details for this emergency:', '');
-
-          // 4. Place a marker for the new emergency
-          const emergencyIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', // Pin-shaped icon
-            iconSize: [36, 36],
-            iconAnchor: [18, 36],
-            popupAnchor: [0, -36]
-          });
-          const marker = L.marker([lat, lng], { icon: emergencyIcon })
-            .addTo(mapRef.current)
-            .bindPopup(`<b>${type}</b><br>${city}<br>Severity: ${severity}`)
-            .openPopup();
-
-          const emergencyDataForDashboard = {
-            type,
-            city,
-            severity,
-            details,
-            user: loggedInUser || (isRegistered ? 'Registered User' : 'Anonymous'),
-            lat,
-            lng,
-          };
-
-          // 5. Pass the new emergency object to the Dashboard (parent)
-          if (typeof onEmergencyPin === 'function') {
-            onEmergencyPin(emergencyDataForDashboard);
-          } else {
-            console.warn("onEmergencyPin handler not provided to Location component. Navigating with state as fallback.");
-            navigate('/dashboard', {
-              state: { pinnedEmergency: emergencyDataForDashboard }
-            });
-          }
-
-          // Save pin for FullMap.jsx
-          try {
-            const fullMapPinData = {
-              ...emergencyDataForDashboard, // Includes type, city, severity, user, lat, lng
-              timestamp: Date.now()
-            };
-            const storedPinsRaw = localStorage.getItem(FULLMAP_PINS_STORAGE_KEY);
-            let storedPins = storedPinsRaw ? JSON.parse(storedPinsRaw) : [];
-            // Filter out old pins before adding new one
-            const now = Date.now();
-            storedPins = storedPins.filter(p => p.timestamp && now - p.timestamp < THREE_DAYS_MS_LOCATION);
-            storedPins.push(fullMapPinData);
-            localStorage.setItem(FULLMAP_PINS_STORAGE_KEY, JSON.stringify(storedPins));
-          } catch (err) {
-            console.error("Failed to save emergency pin to localStorage for FullMap:", err);
-          }        } catch (err) {
+        } catch (err) {
           console.error('Failed to fetch location for emergency pin:', err);
           alert('Failed to fetch location for emergency pin. Please try again.');
+          setIsPinning(false); // Reset pinning state on error
+          if (mapRef.current && mapRef.current.getContainer()) {
+            mapRef.current.getContainer().style.cursor = '';
+          }
         }
-        setIsPinning(false);
-        mapRef.current.getContainer().style.cursor = '';
-        return;
+        // Do not reset pinning or cursor here, modal will handle it or cancel pinning will.
+        return; // Return early as modal will handle the next steps
       }
       // Fallback for other contexts, if needed
       alert(`Pinned for ${context} at ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`);
@@ -269,6 +230,10 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
   const handlePinButtonClick = () => {
     if (!isRegistered) return; // Should not happen if buttons are hidden, but good check
     setIsPinning(true);
+    // Reset modal fields when starting a new pin action
+    setEmergencyType('Flood');
+    setEmergencySeverity('Moderate');
+    setEmergencyDetails('');
   };
 
   const handleCancelPinning = () => {
@@ -276,6 +241,92 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
     if (mapRef.current) {
       mapRef.current.getContainer().style.cursor = ''; // Reset cursor
     }
+  };
+
+  // New handler for submitting the emergency modal
+  const handleEmergencySubmit = async () => {
+    if (emergencyLat === null || emergencyLng === null) {
+      alert('Location not set. Please try pinning again.');
+      return;
+    }
+
+    try {
+      // 4. Place a marker for the new emergency (using state: emergencyLat, emergencyLng, emergencyCity, emergencyType, emergencySeverity)
+      const emergencyIcon = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', // Pin-shaped icon
+        iconSize: [36, 36],
+        iconAnchor: [18, 36],
+        popupAnchor: [0, -36]
+      });
+      if (mapRef.current) { // Ensure map is still available
+        L.marker([emergencyLat, emergencyLng], { icon: emergencyIcon })
+          .addTo(mapRef.current)
+          .bindPopup(`<b>${emergencyType}</b><br>${emergencyCity}<br>Severity: ${emergencySeverity}${emergencyDetails ? `<br>Details: ${emergencyDetails}` : ''}`)
+          .openPopup();
+      }
+
+      const emergencyDataForDashboard = {
+        type: emergencyType,
+        city: emergencyCity,
+        severity: emergencySeverity,
+        details: emergencyDetails,
+        user: loggedInUser || (isRegistered ? 'Registered User' : 'Anonymous'),
+        lat: emergencyLat,
+        lng: emergencyLng,
+      };
+
+      // 5. Pass the new emergency object to the Dashboard (parent)
+      if (typeof onEmergencyPin === 'function') {
+        onEmergencyPin(emergencyDataForDashboard);
+      } else {
+        console.warn("onEmergencyPin handler not provided to Location component. Navigating with state as fallback.");
+        navigate('/dashboard', {
+          state: { pinnedEmergency: emergencyDataForDashboard }
+        });
+      }
+
+      // Save pin for FullMap.jsx
+      try {
+        const fullMapPinData = {
+          ...emergencyDataForDashboard,
+          timestamp: Date.now()
+        };
+        const storedPinsRaw = localStorage.getItem(FULLMAP_PINS_STORAGE_KEY);
+        let storedPins = storedPinsRaw ? JSON.parse(storedPinsRaw) : [];
+        const now = Date.now();
+        storedPins = storedPins.filter(p => p.timestamp && now - p.timestamp < THREE_DAYS_MS_LOCATION);
+        storedPins.push(fullMapPinData);
+        localStorage.setItem(FULLMAP_PINS_STORAGE_KEY, JSON.stringify(storedPins));
+      } catch (err) {
+        console.error("Failed to save emergency pin to localStorage for FullMap:", err);
+      }
+
+    } catch (err) {
+      console.error('Error submitting emergency details:', err);
+      alert('Error submitting emergency details. Please try again.');
+    } finally {
+      // Reset states and hide modal
+      setShowEmergencyModal(false);
+      setIsPinning(false);
+      if (mapRef.current && mapRef.current.getContainer()) {
+        mapRef.current.getContainer().style.cursor = '';
+      }
+      // Clear lat/lng for next pin
+      setEmergencyLat(null);
+      setEmergencyLng(null);
+      setEmergencyCity('');
+    }
+  };
+
+  const handleModalCancel = () => {
+    setShowEmergencyModal(false);
+    setIsPinning(false); // Also cancel pinning mode
+    if (mapRef.current && mapRef.current.getContainer()) {
+      mapRef.current.getContainer().style.cursor = '';
+    }
+    setEmergencyLat(null);
+    setEmergencyLng(null);
+    setEmergencyCity('');
   };
 
 
@@ -294,6 +345,67 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
               className="rounded-lg"
             ></div>
           </div>
+
+          {/* Emergency Input Modal */}
+          {showEmergencyModal && (
+            <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[1001]">
+              <div className="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md mx-4">
+                <h3 className="text-xl font-semibold text-white mb-4">Report Emergency</h3>
+                <div className="mb-4">
+                  <label htmlFor="emergencyType" className="block text-sm font-medium text-gray-300 mb-1">Emergency Type</label>
+                  <select
+                    id="emergencyType"
+                    value={emergencyType}
+                    onChange={(e) => setEmergencyType(e.target.value)}
+                    className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="Flood">Flood</option>
+                    <option value="Fire">Fire</option>
+                    <option value="Earthquake">Earthquake</option>
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <label htmlFor="emergencySeverity" className="block text-sm font-medium text-gray-300 mb-1">Severity</label>
+                  <select
+                    id="emergencySeverity"
+                    value={emergencySeverity}
+                    onChange={(e) => setEmergencySeverity(e.target.value)}
+                    className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Moderate">Moderate</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <label htmlFor="emergencyDetails" className="block text-sm font-medium text-gray-300 mb-1">Details (Optional)</label>
+                  <textarea
+                    id="emergencyDetails"
+                    value={emergencyDetails}
+                    onChange={(e) => setEmergencyDetails(e.target.value)}
+                    rows="3"
+                    className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Provide any additional details..."
+                  ></textarea>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={handleModalCancel}
+                    className="px-4 py-2 rounded bg-gray-600 text-white hover:bg-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleEmergencySubmit}
+                    className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600"
+                  >
+                    Submit Emergency
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Buttons Area - Positioned absolutely within the parent */}
           <div className="absolute bottom-4 right-4 z-[1000] flex flex-col space-y-2">
             {!isPinning && context === 'weather' && (

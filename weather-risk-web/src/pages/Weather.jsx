@@ -13,6 +13,10 @@ export default function Weather({ initialData, clearInitialData, onSelectLocatio
   // Ref to store the initialData that was present when the effect ran
   const initialDataSnapshotForCleanup = useRef(null); 
 
+  // Typical values for the Philippines
+  const TYPICAL_TEMP_PH = "25-32°C";
+  const TYPICAL_WIND_SPEED_PH = "5-15 km/h";
+
   // Function to interpret WMO weather codes
   const getWeatherDescription = (code) => {
     const descriptions = {
@@ -169,11 +173,11 @@ export default function Weather({ initialData, clearInitialData, onSelectLocatio
         <div className="space-y-4 text-lg">
           <div className="flex justify-between">
             <span className="font-semibold text-gray-300">Temperature:</span>
-            <span className="text-gray-100">{weather.temperature}°C</span>
+            <span className="text-gray-100">{weather.temperature}°C (Typical: {TYPICAL_TEMP_PH})</span>
           </div>
           <div className="flex justify-between">
             <span className="font-semibold text-gray-300">Wind Speed:</span>
-            <span className="text-gray-100">{weather.windspeed} km/h</span>
+            <span className="text-gray-100">{weather.windspeed} km/h (Typical: {TYPICAL_WIND_SPEED_PH})</span>
           </div>
           <div className="flex justify-between">
             <span className="font-semibold text-gray-300">Condition:</span>
