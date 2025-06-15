@@ -9,6 +9,7 @@ import "leaflet.heat";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
+import { supabase } from "../supabase"; // Import Supabase client
 
 // Fix Leaflet's default icon paths
 delete L.Icon.Default.prototype._getIconUrl;
@@ -21,15 +22,21 @@ L.Icon.Default.mergeOptions({
 const FULLMAP_PINS_STORAGE_KEY = 'fullMapEmergencyPins'; // Key for FullMap pins
 const THREE_DAYS_MS_LOCATION = 3 * 24 * 60 * 60 * 1000; // For consistency
 
+// Constants for localStorage keys (should match Account.jsx)
+const EMAIL_PROMPTS_STORAGE_KEY = 'emailPromptsActive';
+const USER_EMAIL_STORAGE_KEY = 'userEmail';
+
 // Accept context and onWeatherLocationPin prop
-export default function Location({ isRegistered, context, onWeatherLocationPin, onEmergencyPin, loggedInUser }) {
+export default function Location({ isRegistered, context, onWeatherLocationPin, onEmergencyPin, loggedInUser }) { // Removed onClearAllEmergencies
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [emergencyLat, setEmergencyLat] = useState(null);
   const [emergencyLng, setEmergencyLng] = useState(null);
   const [emergencyCity, setEmergencyCity] = useState('');
+  const [fullAddress, setFullAddress] = useState(''); // <-- ADDED: State for full address
   const [emergencyType, setEmergencyType] = useState('Flood'); // Default value
   const [emergencySeverity, setEmergencySeverity] = useState('Moderate'); // Default value
   const [emergencyDetails, setEmergencyDetails] = useState('');
+  // REMOVED: const [showDevClearButton, setShowDevClearButton] = useState(false); 
 
   const navigate = useNavigate();
   const mapRef = useRef(null); // To store the map instance
@@ -190,11 +197,17 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
           });
           const nominatimData = await nominatimResp.json();
           const city = nominatimData.address.city || nominatimData.address.town || nominatimData.address.village || nominatimData.address.county || 'Unknown Area';
+          const detailedAddress = nominatimData.display_name || city;
+          
+          console.log("[Location.jsx] Nominatim display_name:", nominatimData.display_name);
+          console.log("[Location.jsx] Determined city:", city);
+          console.log("[Location.jsx] detailedAddress to be set for fullAddress:", detailedAddress);
 
           // Store lat, lng, city and show modal instead of prompting
           setEmergencyLat(lat);
           setEmergencyLng(lng);
           setEmergencyCity(city);
+          setFullAddress(detailedAddress); // Set full address state
           setShowEmergencyModal(true);
           // No longer prompting here, so remove old prompt logic.
           // The rest of the logic (marker placement, data saving) will be in handleEmergencySubmit
@@ -225,7 +238,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
       }
     };
   }, [isRegistered, isPinning, context, mapRef, navigate, onWeatherLocationPin, onEmergencyPin]);
-
+  
 
   const handlePinButtonClick = () => {
     if (!isRegistered) return; // Should not happen if buttons are hidden, but good check
@@ -238,7 +251,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
 
   const handleCancelPinning = () => {
     setIsPinning(false);
-    if (mapRef.current) {
+    if (mapRef.current && mapRef.current.getContainer()) { // Added null check for getContainer
       mapRef.current.getContainer().style.cursor = ''; // Reset cursor
     }
   };
@@ -251,7 +264,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
     }
 
     try {
-      // 4. Place a marker for the new emergency (using state: emergencyLat, emergencyLng, emergencyCity, emergencyType, emergencySeverity)
+      // 4. Place a marker for the new emergency
       const emergencyIcon = L.icon({
         iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', // Pin-shaped icon
         iconSize: [36, 36],
@@ -261,18 +274,19 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
       if (mapRef.current) { // Ensure map is still available
         L.marker([emergencyLat, emergencyLng], { icon: emergencyIcon })
           .addTo(mapRef.current)
-          .bindPopup(`<b>${emergencyType}</b><br>${emergencyCity}<br>Severity: ${emergencySeverity}${emergencyDetails ? `<br>Details: ${emergencyDetails}` : ''}`)
+          .bindPopup(`<b>${emergencyType}</b><br>Location: ${fullAddress || city}<br>Severity: ${emergencySeverity}${emergencyDetails ? `<br>Details: ${emergencyDetails}` : ''}`)
           .openPopup();
       }
 
       const emergencyDataForDashboard = {
         type: emergencyType,
         city: emergencyCity,
+        fullAddress: fullAddress, 
         severity: emergencySeverity,
         details: emergencyDetails,
         user: loggedInUser || (isRegistered ? 'Registered User' : 'Anonymous'),
-        lat: emergencyLat,
-        lng: emergencyLng,
+        lat: emergencyLat, // Still useful for mapping, just not primary in email
+        lng: emergencyLng,   // Still useful for mapping, just not primary in email
       };
 
       // 5. Pass the new emergency object to the Dashboard (parent)
@@ -301,6 +315,48 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
         console.error("Failed to save emergency pin to localStorage for FullMap:", err);
       }
 
+      // ---- MODIFIED: Send email prompt if active with more logging ----
+      try {
+        const emailPromptsActiveRaw = localStorage.getItem(EMAIL_PROMPTS_STORAGE_KEY);
+        const userEmail = localStorage.getItem(USER_EMAIL_STORAGE_KEY);
+
+        console.log("[EmailDebug] In handleEmergencySubmit:");
+        console.log("[EmailDebug] emailPromptsActiveRaw from localStorage:", emailPromptsActiveRaw);
+        console.log("[EmailDebug] userEmail from localStorage:", userEmail);
+
+        if (emailPromptsActiveRaw && userEmail && userEmail.trim() !== "") { // Added check for non-empty userEmail
+          const emailPromptsActive = JSON.parse(emailPromptsActiveRaw);
+          console.log("[EmailDebug] emailPromptsActive (parsed):", emailPromptsActive);
+
+          if (emailPromptsActive) {
+            console.log(`[EmailDebug] Conditions met. Attempting to invoke send-emergency-alert for ${userEmail}. Details:`, emergencyDataForDashboard);
+            const { data, error } = await supabase.functions.invoke('send-emergency-alert', {
+              body: {
+                emergencyDetails: emergencyDataForDashboard,
+                recipientEmail: userEmail
+              }
+            });
+
+            if (error) {
+              console.error('[EmailDebug] Error invoking send-emergency-alert function:', error);
+              // alert('Emergency reported, but there was an issue sending the email alert.');
+            } else {
+              console.log('[EmailDebug] send-emergency-alert function invoked successfully:', data);
+              // alert('Emergency reported and email alert sent!');
+            }
+          } else {
+            console.log("[EmailDebug] Email prompts are not active (parsed as false).");
+          }
+        } else {
+          console.log("[EmailDebug] Email not sent. Conditions not met:");
+          if (!emailPromptsActiveRaw) console.log("[EmailDebug] - emailPromptsActiveRaw is missing or falsy.");
+          if (!userEmail || userEmail.trim() === "") console.log("[EmailDebug] - userEmail is missing, null, or empty.");
+        }
+      } catch (emailError) {
+        console.error("[EmailDebug] Error during email prompt logic:", emailError);
+      }
+      // ---- END MODIFIED ----
+
     } catch (err) {
       console.error('Error submitting emergency details:', err);
       alert('Error submitting emergency details. Please try again.');
@@ -315,6 +371,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
       setEmergencyLat(null);
       setEmergencyLng(null);
       setEmergencyCity('');
+      setFullAddress(''); // <-- ADDED: Reset full address state
     }
   };
 
@@ -327,6 +384,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
     setEmergencyLat(null);
     setEmergencyLng(null);
     setEmergencyCity('');
+    setFullAddress(''); // <-- ADDED: Reset full address state
   };
 
 
@@ -407,7 +465,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
           )}
 
           {/* Buttons Area - Positioned absolutely within the parent */}
-          <div className="absolute bottom-4 right-4 z-[1000] flex flex-col space-y-2">
+          <div className="absolute bottom-4 right-4 z-[1000] flex flex-col space-y-2 items-end"> {/* Added items-end for alignment */}
             {!isPinning && context === 'weather' && (
               <button
                 onClick={handlePinButtonClick}
@@ -432,6 +490,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
                 Cancel Pinning
               </button>
             )}
+            {/* REMOVED: Hidden Dev Button */}
           </div>
           <p className="text-gray-300 text-sm text-center mt-2">
             {isPinning ? `Click on the map to pin for ${context}.` : 'Map controls will appear here.'}

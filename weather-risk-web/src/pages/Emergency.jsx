@@ -7,10 +7,11 @@ const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 const EMAIL_PROMPTS_STORAGE_KEY = 'emailPromptsActive';
 const USER_EMAIL_STORAGE_KEY = 'userEmail';
 
-export default function Emergency({ onSelectEmergency, isRegistered, navigate, pinnedEmergency, onPinnedEmergencyConsumed }) {
+export default function Emergency({ onSelectEmergency, isRegistered, navigate, pinnedEmergency, onPinnedEmergencyConsumed, clearTrigger, onDevClearAllRequest }) { // Added onDevClearAllRequest
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [emergencies, setEmergencies] = useState([]);
   const [isListExpanded, setIsListExpanded] = useState(false); // For collapsible list
+  const [showDevClearButton, setShowDevClearButton] = useState(false); // State for dev button
 
   // Load emergencies from localStorage on initial mount and filter old ones
   useEffect(() => {
@@ -32,6 +33,38 @@ export default function Emergency({ onSelectEmergency, isRegistered, navigate, p
       // localStorage.removeItem(LOCAL_STORAGE_KEY);
     }
   }, []); // Empty dependency array ensures this runs only on mount
+
+  // Effect to clear emergencies when clearTrigger changes
+  useEffect(() => {
+    if (clearTrigger > 0) { // Check if it's not the initial state (0)
+      console.log("[Emergency.jsx] Clear trigger received. Clearing emergencies.");
+      setEmergencies([]);
+      try {
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        console.log("[Emergency.jsx] Cleared emergencies from localStorage due to trigger.");
+      } catch (error) {
+        console.error("[Emergency.jsx] Failed to clear emergencies from localStorage:", error);
+      }
+      // Optionally, if you want to inform the user or reset other states here, you can.
+      // For example, if there was a selectedEmergency, you might want to clear it.
+    }
+  }, [clearTrigger]);
+
+  // Effect for Ctrl+Alt+P to show dev button
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.ctrlKey && event.altKey && (event.key === 'p' || event.key === 'P')) {
+        event.preventDefault();
+        setShowDevClearButton(prev => !prev);
+      }
+    };
+    // Add listener when component mounts
+    document.addEventListener('keydown', handleKeyDown);
+    // Remove listener when component unmounts
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []); // Empty dependency array means this runs once on mount and cleanup on unmount
 
   // Effect to handle new pinned emergencies
   useEffect(() => {
@@ -123,6 +156,19 @@ export default function Emergency({ onSelectEmergency, isRegistered, navigate, p
     }
   };
 
+  const handleDevClearAll = () => {
+    if (typeof onDevClearAllRequest === 'function') {
+      onDevClearAllRequest(); // Call the function passed from Dashboard
+      // This will trigger the clearTrigger effect which handles localStorage and state for emergencies list
+    }
+    // Also clear local map pins if any (though Emergency.jsx doesn't directly manage FullMap pins)
+    // This is more of a safety measure, the main clearing is done via onDevClearAllRequest -> clearTrigger
+    localStorage.removeItem('fullMapEmergencyPins'); 
+    console.log("[DevTool Emergency.jsx] Cleared fullMapEmergencyPins from localStorage.");
+    setShowDevClearButton(false); // Hide the button after action
+    alert('All emergency data clear request sent. Emergency list and map pins should be cleared.');
+  };
+
   const displayEmergencies = emergencies.length > 6 && !isListExpanded 
     ? emergencies.slice(0, 6) 
     : emergencies;
@@ -177,7 +223,18 @@ export default function Emergency({ onSelectEmergency, isRegistered, navigate, p
       {/* {showDetail && selectedEmergency && ( ...modal JSX... )} */}
 
       {/* "Add Emergency" Button and Auth Prompt Area */}
-      <div className="absolute bottom-0 right-0 p-4">
+      <div className="absolute bottom-0 right-0 p-4 flex flex-col items-end space-y-2"> {/* Ensure flex column and spacing */}
+        {/* Hidden Dev Button - Renders above Add Emergency button if active */}
+        {showDevClearButton && isRegistered && (
+          <button
+            onClick={handleDevClearAll}
+            className="bg-yellow-500 text-black px-3 py-2 rounded shadow-lg hover:bg-yellow-600 text-sm mb-2" // Added mb-2 for spacing
+            title="Dev: Clear All Emergencies"
+          >
+            Clear All Emergencies (Dev)
+          </button>
+        )}
+
         {!showAuthPrompt ? (
           <button
             onClick={handleAddEmergencyClick}

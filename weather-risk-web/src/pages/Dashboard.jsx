@@ -12,6 +12,7 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
   const [pinnedWeatherData, setPinnedWeatherData] = useState(null);
   const [newlyPinnedEmergency, setNewlyPinnedEmergency] = useState(null); // New state for pinned emergency
   const [isFetchingLiveWeather, setIsFetchingLiveWeather] = useState(false);
+  const [emergencyClearTrigger, setEmergencyClearTrigger] = useState(0); // New state to trigger emergency clear
   const navigate = useNavigate();
   const justSetByViewWeatherClickRef = useRef(false);
   const prevActiveComponentRef = useRef(); // Ref to store previous activeComponent
@@ -87,6 +88,15 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
     console.log("Dashboard.jsx: Emergency component consumed the pinned data. Clearing newlyPinnedEmergency.");
     setNewlyPinnedEmergency(null);
   }, []);
+
+  // Function to be called from Location.jsx to clear all emergencies
+  const handleClearAllEmergenciesDashboard = () => {
+    console.log("Dashboard.jsx: Clearing all emergencies trigger.");
+    setEmergencyClearTrigger(prev => prev + 1); // Increment to trigger useEffect in Emergency.jsx
+    // Optionally, could also clear newlyPinnedEmergency if it makes sense for the flow
+    // setNewlyPinnedEmergency(null);
+    // No need to change activeComponent here, Location component handles its own UI for the dev button
+  };
 
   // Function to handle pinned weather location from Location.jsx
   const handleWeatherLocationPin = (data) => {
@@ -309,8 +319,26 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
             </div>
           )}
           {!isFetchingLiveWeather && activeComponent === "weather" && <Weather initialData={pinnedWeatherData} clearInitialData={handleClearPinnedData} onSelectLocation={(item, context) => showLocation(item, context)} />}
-          {!isFetchingLiveWeather && activeComponent === "location" && <Location isRegistered={isRegistered} context={activeComponentContext} onWeatherLocationPin={handleWeatherLocationPin} onEmergencyPin={handleEmergencyPin} loggedInUser={loggedInUser} />}
-          {!isFetchingLiveWeather && activeComponent === "emergency" && <Emergency onSelectEmergency={(item, context) => showLocation(item, context)} isRegistered={isRegistered} navigate={navigate} pinnedEmergency={newlyPinnedEmergency} onPinnedEmergencyConsumed={handlePinnedEmergencyConsumed} />}
+          {!isFetchingLiveWeather && activeComponent === "location" && 
+            <Location 
+              isRegistered={isRegistered} 
+              context={activeComponentContext} 
+              onWeatherLocationPin={handleWeatherLocationPin} 
+              onEmergencyPin={handleEmergencyPin} 
+              loggedInUser={loggedInUser} 
+            />
+          }
+          {!isFetchingLiveWeather && activeComponent === "emergency" && 
+            <Emergency 
+              onSelectEmergency={(item, context) => showLocation(item, context)} 
+              isRegistered={isRegistered} 
+              navigate={navigate} 
+              pinnedEmergency={newlyPinnedEmergency} 
+              onPinnedEmergencyConsumed={handlePinnedEmergencyConsumed} 
+              clearTrigger={emergencyClearTrigger} // Pass the trigger
+              onDevClearAllRequest={handleClearAllEmergenciesDashboard} // Pass the dashboard's clear function
+            />
+          }
         </div>
 
         {/* MiniMap positioned in the corner, shown only when intro is visible */}
