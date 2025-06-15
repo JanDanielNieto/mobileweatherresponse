@@ -11,8 +11,8 @@ import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
-const FULLMAP_PINS_STORAGE_KEY_FM = 'fullMapEmergencyPins'; // Use the same key as in Location.jsx
-const THREE_DAYS_MS_FM = 3 * 24 * 60 * 60 * 1000;
+const FULLMAP_EMERGENCY_PINS_KEY = 'fullMapEmergencyPins'; // Standardized key
+const THREE_DAYS_MS_FULLMAP = 3 * 24 * 60 * 60 * 1000; // Suffix for clarity
 
 // Fix Leaflet's default icon paths
 delete L.Icon.Default.prototype._getIconUrl;
@@ -150,19 +150,19 @@ export default function FullMap() {
           }
 
           // Add heatmap layer (check if L.heatLayer is available)
-          if (L.heatLayer) {
-            const heatData = [
-              [14.5995, 120.9842, 0.5],
-              [14.6095, 120.9842, 0.8],
-              [14.6195, 120.9742, 0.4],
-              [14.5895, 120.9642, 0.9]
-            ];
-            L.heatLayer(heatData, {
-              radius: 25,
-              blur: 15,
-              maxZoom: 17
-            }).addTo(map);
-          }
+          // if (L.heatLayer) {
+          //   const heatData = [
+          //     [14.5995, 120.9842, 0.5],
+          //     [14.6095, 120.9842, 0.8],
+          //     [14.6195, 120.9742, 0.4],
+          //     [14.5895, 120.9642, 0.9]
+          //   ];
+          //   L.heatLayer(heatData, {
+          //     radius: 25,
+          //     blur: 15,
+          //     maxZoom: 17
+          //   }).addTo(map);
+          // }
           
           // --- Weather API Integration ---
           const latitude = 14.3165; // Carmona latitude
@@ -180,30 +180,72 @@ export default function FullMap() {
 
           // Load and display emergency pins from localStorage
           try {
-            const storedPinsRaw = localStorage.getItem(FULLMAP_PINS_STORAGE_KEY_FM);
+            console.log("[FullMap.jsx] Attempting to load pins from localStorage with key:", FULLMAP_EMERGENCY_PINS_KEY);
+            const storedPinsRaw = localStorage.getItem(FULLMAP_EMERGENCY_PINS_KEY);
             if (storedPinsRaw) {
               let storedPins = JSON.parse(storedPinsRaw);
+              console.log("[FullMap.jsx] Raw pins from localStorage:", storedPins);
               const now = Date.now();
               const validPins = storedPins.filter(
-                (pin) => pin.timestamp && now - pin.timestamp < THREE_DAYS_MS_FM
+                (pin) => pin.timestamp && now - pin.timestamp < THREE_DAYS_MS_FULLMAP && pin.lat != null && pin.lng != null
               );
+              console.log("[FullMap.jsx] Valid pins after filtering:", validPins);
 
-              localStorage.setItem(FULLMAP_PINS_STORAGE_KEY_FM, JSON.stringify(validPins));
+              localStorage.setItem(FULLMAP_EMERGENCY_PINS_KEY, JSON.stringify(validPins)); // Update with filtered list
 
-              const emergencyIcon = L.icon({
-                iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+              // Define icons for different severities
+              const highSeverityIcon = L.icon({
+                iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                iconSize: [32, 32],
+                iconAnchor: [16, 32],
+                popupAnchor: [0, -32]
+              });
+              const moderateSeverityIcon = L.icon({
+                iconUrl: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png',
+                iconSize: [32, 32],
+                iconAnchor: [16, 32],
+                popupAnchor: [0, -32]
+              });
+              const lowSeverityIcon = L.icon({
+                iconUrl: 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png',
+                iconSize: [32, 32],
+                iconAnchor: [16, 32],
+                popupAnchor: [0, -32]
+              });
+              const defaultEmergencyIcon = L.icon({ // Fallback icon
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', // Default red emergency icon
                 iconSize: [36, 36],
                 iconAnchor: [18, 36],
                 popupAnchor: [0, -36]
               });
 
               validPins.forEach(pin => {
-                if (pin.lat != null && pin.lng != null) {
-                  L.marker([pin.lat, pin.lng], { icon: emergencyIcon })
+                // if (pin.lat != null && pin.lng != null) { // This check is now in the filter
+                  let iconToUse = defaultEmergencyIcon;
+                  if (pin.severity) {
+                    switch (pin.severity.toLowerCase()) {
+                      case 'high':
+                        iconToUse = highSeverityIcon;
+                        break;
+                      case 'moderate':
+                        iconToUse = moderateSeverityIcon;
+                        break;
+                      case 'low':
+                        iconToUse = lowSeverityIcon;
+                        break;
+                      default:
+                        iconToUse = defaultEmergencyIcon;
+                    }
+                  }
+
+                  L.marker([pin.lat, pin.lng], { icon: iconToUse })
                     .addTo(map)
-                    .bindPopup(`<b>${pin.type || 'N/A'}</b><br>Location: ${pin.city || 'N/A'}<br>Severity: ${pin.severity || 'N/A'}<br>User: ${pin.user || 'N/A'}`);
-                }
+                    .bindPopup(`<b>${pin.type || 'N/A'}</b><br>Location: ${pin.fullAddress || pin.city || 'N/A'}<br>Severity: ${pin.severity || 'N/A'}<br>User: ${pin.user || 'Anonymous'}`);
+                // }
               });
+              console.log("[FullMap.jsx] Finished processing and adding markers for valid pins.");
+            } else {
+              console.log("[FullMap.jsx] No pins found in localStorage with key:", FULLMAP_EMERGENCY_PINS_KEY);
             }
           } catch (error) {
             console.error("Failed to load or display emergency pins from localStorage on FullMap:", error);

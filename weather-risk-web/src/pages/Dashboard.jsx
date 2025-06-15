@@ -5,14 +5,16 @@ import Location from "./Location";
 import Emergency from "./Emergency";
 import MiniMap from "../components/MiniMap";
 import SeiaWeatherIcon from "../../public/SeiaWeather.png"; // Import the icon
+import { supabase } from "../supabase"; // Corrected import path
 
-export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser }) {
+export default function Dashboard({ isAdmin, isRegistered, setIsRegistered, loggedInUser, setLoggedInUser, setIsAdmin }) { // Added isAdmin
   const [activeComponent, setActiveComponent] = useState(null);
   const [activeComponentContext, setActiveComponentContext] = useState(null);
   const [pinnedWeatherData, setPinnedWeatherData] = useState(null);
   const [newlyPinnedEmergency, setNewlyPinnedEmergency] = useState(null); // New state for pinned emergency
   const [isFetchingLiveWeather, setIsFetchingLiveWeather] = useState(false);
   const [emergencyClearTrigger, setEmergencyClearTrigger] = useState(0); // New state to trigger emergency clear
+  const [showContentViewOnMobile, setShowContentViewOnMobile] = useState(false); // ADDED: State to control mobile view
   const navigate = useNavigate();
   const justSetByViewWeatherClickRef = useRef(false);
   const prevActiveComponentRef = useRef(); // Ref to store previous activeComponent
@@ -35,20 +37,25 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
   }, [activeComponent]); // Dependency: only run when activeComponent changes.
 
   const handleLogout = () => {
-    setIsRegistered(false);
-    setLoggedInUser(null);
+    setIsRegistered(false); // Calls App's setIsRegistered
+    setLoggedInUser(null);  // Calls App's setLoggedInUser, which will trigger App's useEffect
     localStorage.removeItem('loggedInUser');
+    localStorage.removeItem('isAdmin'); // Ensure isAdmin is cleared from localStorage on logout
+    supabase.auth.signOut(); // Ensure Supabase session is cleared
     setActiveComponent(null);
     setActiveComponentContext(null);
     setPinnedWeatherData(null);
     justSetByViewWeatherClickRef.current = false;
+    setShowContentViewOnMobile(false); // Reset mobile view on logout
     console.log("Dashboard.jsx: Logout. justSetByViewWeatherClickRef set to false.");
+    navigate("/login"); // Navigate to login page after logout
   };
 
   const showLocation = (item, context) => {
     console.log("Showing location for context:", context, "Item:", item);
     setActiveComponent("location");
     setActiveComponentContext(context);
+    setShowContentViewOnMobile(true); // Show content view on mobile
     // If 'item' exists and context is 'viewEmergency', you might pass 'item' to Location component later
   };
 
@@ -56,6 +63,7 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
   const clearActiveComponent = () => {
     setActiveComponent(null);
     setActiveComponentContext(null);
+    setShowContentViewOnMobile(false); // Hide content view on mobile when clearing
     // We don't necessarily clear pinnedWeatherData here,
     // as Weather component's unmount (if it was showing pinned data) would handle it.
     // If we want to explicitly clear it, then: setPinnedWeatherData(null);
@@ -81,6 +89,7 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
     console.log("Dashboard.jsx: handleEmergencyPin called with:", emergencyDataFromLocation);
     setNewlyPinnedEmergency(emergencyDataFromLocation);
     setActiveComponent("emergency"); // Switch view to the emergency list/modal
+    setShowContentViewOnMobile(true); // Show content view on mobile
   };
 
   // Callback for Emergency.jsx to signal consumption of pinned data
@@ -131,6 +140,7 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
 
     setPinnedWeatherData(data);
     setActiveComponent("weather");
+    setShowContentViewOnMobile(true); // Show content view on mobile
     // setActiveComponentContext("pinned"); // Context for how weather was activated
     if (data) {
         // This signifies that the pinnedWeatherData is fresh and should be protected
@@ -150,6 +160,7 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
     justSetByViewWeatherClickRef.current = false;
     console.log("Dashboard.jsx: handleViewWeatherClick start. justSetByViewWeatherClickRef set to false.");
     setIsFetchingLiveWeather(true);
+    setShowContentViewOnMobile(true); // Show content view on mobile
     console.log("isFetchingLiveWeather set to true");
 
     if (navigator.geolocation) {
@@ -184,6 +195,7 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
             setPinnedWeatherData(weatherPayload);
             console.log("Setting activeComponent to 'weather'");
             setActiveComponent("weather");
+            setShowContentViewOnMobile(true); // Ensure content view is shown
             if (weatherPayload) { // Only set flag if we actually got data
                 justSetByViewWeatherClickRef.current = true;
                 console.log("Dashboard.jsx: Live weather fetched. justSetByViewWeatherClickRef set to true.");
@@ -191,7 +203,8 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
           } catch (err) {
             console.error("Error fetching live weather data (inside try-catch):", err);
             // justSetByViewWeatherClickRef.current remains false (set at start)
-            setActiveComponent("weather");
+            setActiveComponent("weather"); // Still show weather component, it will handle no data
+            setShowContentViewOnMobile(true); // Show content view on mobile
             console.log("Fell back to setting activeComponent to 'weather' after error.");
           }
           setIsFetchingLiveWeather(false);
@@ -200,7 +213,8 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
         (error) => {
           console.error("Geolocation error callback:", error.message, error);
           // justSetByViewWeatherClickRef.current remains false (set at start)
-          setActiveComponent("weather");
+          setActiveComponent("weather"); // Still show weather component, it will handle error
+          setShowContentViewOnMobile(true); // Show content view on mobile
           setIsFetchingLiveWeather(false);
           console.log("isFetchingLiveWeather set to false (after geolocation error)");
         }
@@ -208,55 +222,84 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
     } else {
       console.error("Geolocation is not supported by this browser.");
       // justSetByViewWeatherClickRef.current remains false (set at start)
-      setActiveComponent("weather");
+      setActiveComponent("weather"); // Still show weather component, it will handle no support
+      setShowContentViewOnMobile(true); // Show content view on mobile
       setIsFetchingLiveWeather(false);
       console.log("isFetchingLiveWeather set to false (geolocation not supported)");
     }
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Sidebar */}
-      <div className="w-1/3 bg-gray-100 dark:bg-gray-800 p-8 flex flex-col justify-between">
+    <div className="min-h-screen flex flex-col md:flex-row"> {/* Changed to flex-col on mobile, md:flex-row for larger screens */}
+      {/* Left Sidebar - Full width on mobile, 1/3 on md and up. Hidden on mobile if showContentViewOnMobile is true */}
+      <div className={`
+        ${showContentViewOnMobile && activeComponent ? 'hidden' : 'flex'} 
+        md:flex flex-col justify-between 
+        w-full md:w-1/3 bg-gray-100 dark:bg-gray-800 p-4 md:p-8
+      `}>
         <div> {/* Container for top elements */}
           {/* New SeiaWeather Heading - Make it clickable */}
-          <div className="text-center mb-4 cursor-pointer flex items-center justify-center" onClick={() => { setActiveComponent(null); setPinnedWeatherData(null); setIsFetchingLiveWeather(false); justSetByViewWeatherClickRef.current = false; console.log("Dashboard.jsx: Header clicked. justSetByViewWeatherClickRef set to false."); }}>
+          <div className="text-center mb-4 cursor-pointer flex items-center justify-center" 
+               onClick={() => { 
+                 setActiveComponent(null); 
+                 setPinnedWeatherData(null); 
+                 setIsFetchingLiveWeather(false); 
+                 justSetByViewWeatherClickRef.current = false; 
+                 setShowContentViewOnMobile(false); // Hide content view, show sidebar
+                 console.log("Dashboard.jsx: Header clicked. justSetByViewWeatherClickRef set to false."); 
+               }}>
             <img src={SeiaWeatherIcon} alt="SeiaWeather Icon" className="h-10 w-10 mr-2" /> {/* Add icon here */}
-            <h1 className="text-4xl font-bold text-blue-600 dark:text-blue-400 font-serif">SeiaWeather</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-blue-600 dark:text-blue-400 font-serif">SeiaWeather</h1>
           </div>
-          <h1 className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-gray-100">
+          <h1 className="text-xl md:text-2xl font-bold mb-6 text-center text-gray-800 dark:text-gray-100">
             Dashboard
           </h1>
-          <div className="flex flex-col items-center space-y-4"> {/* Reverted to space-y-4 */}
+          {/* Increased padding and text size for buttons on all screens, full width by default */}
+          <div className="flex flex-col items-center space-y-3 md:space-y-4"> 
             <button
-              className="w-full bg-green-500 hover:bg-green-600 text-white dark:bg-green-600 dark:hover:bg-green-700 px-6 py-2 rounded text-base"
-              onClick={handleViewWeatherClick}
+              className="w-full bg-green-500 hover:bg-green-600 text-white dark:bg-green-600 dark:hover:bg-green-700 px-6 py-3 rounded text-lg md:text-base"
+              onClick={handleViewWeatherClick} // This already sets showContentViewOnMobile
             >
               View Weather
             </button>
             <button
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white dark:bg-blue-600 dark:hover:bg-blue-700 px-6 py-2 rounded text-base"
-              onClick={() => navigate('/map')}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white dark:bg-blue-600 dark:hover:bg-blue-700 px-6 py-3 rounded text-lg md:text-base"
+              onClick={() => {
+                navigate('/map'); 
+                // setShowContentViewOnMobile(true); // Not strictly needed for navigate, but good for consistency if map was inline
+              }}
             >
               View Full Map
             </button>
             <button
-              className="w-full bg-yellow-500 hover:bg-yellow-600 text-white dark:bg-yellow-600 dark:hover:bg-yellow-700 px-6 py-2 rounded text-base"
-              onClick={() => { setActiveComponent("emergency"); setActiveComponentContext(null); }}
+              className="w-full bg-yellow-500 hover:bg-yellow-600 text-white dark:bg-yellow-600 dark:hover:bg-yellow-700 px-6 py-3 rounded text-lg md:text-base"
+              onClick={() => { setActiveComponent("emergency"); setActiveComponentContext(null); setShowContentViewOnMobile(true); }}
             >
               View Emergencies
             </button>
+            <button
+              className="w-full bg-cyan-500 hover:bg-cyan-600 text-white dark:bg-cyan-600 dark:hover:bg-cyan-700 px-6 py-3 rounded text-lg md:text-base"
+              onClick={() => { setActiveComponent("info"); setActiveComponentContext(null); setShowContentViewOnMobile(true); }}
+            >
+              Info
+            </button>
             {isRegistered ? (
               <button
-                className="w-full bg-gray-500 hover:bg-gray-600 text-white dark:bg-gray-600 dark:hover:bg-gray-700 px-6 py-2 rounded text-base"
-                onClick={() => navigate("/account")}
+                className="w-full bg-gray-500 hover:bg-gray-600 text-white dark:bg-gray-600 dark:hover:bg-gray-700 px-6 py-3 rounded text-lg md:text-base"
+                onClick={() => {
+                  navigate("/account");
+                  // setShowContentViewOnMobile(true); // For consistency if account was inline
+                }}
               >
                 Account
               </button>
             ) : (
               <button
-                className="w-full bg-purple-500 hover:bg-purple-600 text-white dark:bg-purple-600 dark:hover:bg-purple-700 px-6 py-2 rounded text-base"
-                onClick={() => navigate("/register")}
+                className="w-full bg-purple-500 hover:bg-purple-600 text-white dark:bg-purple-600 dark:hover:bg-purple-700 px-6 py-3 rounded text-lg md:text-base"
+                onClick={() => {
+                  navigate("/register");
+                  // setShowContentViewOnMobile(true); // For consistency if register was inline
+                }}
               >
                 Register
               </button>
@@ -266,7 +309,7 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
         <div>
           {isRegistered && (
             <button
-              className="w-full bg-red-600 hover:bg-red-700 text-white dark:bg-red-700 dark:hover:bg-red-800 px-4 py-1.5 rounded text-sm mt-8"
+              className="w-full bg-red-600 hover:bg-red-700 text-white dark:bg-red-700 dark:hover:bg-red-800 px-4 py-2 rounded text-base md:text-sm mt-6 md:mt-8"
               onClick={handleLogout}
             >
               Logout
@@ -275,8 +318,26 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
         </div>
       </div>
 
-      {/* Right Content Area - Now uses flex-col to position welcome message at the bottom */}
-      <div className={`w-2/3 bg-blue-50 dark:bg-[#242424] text-blue-900 dark:text-[rgba(255,255,255,0.87)] p-8 flex flex-col transition-colors duration-300 relative`}> {/* Added relative for MiniMap positioning */}
+      {/* Right Content Area - Full width on mobile if active, 2/3 on md and up. Hidden on mobile if showContentViewOnMobile is false and activeComponent is null */}
+      <div className={`
+        ${(!activeComponent || !showContentViewOnMobile) ? 'hidden' : 'block'} 
+        md:block w-full md:w-2/3 bg-blue-50 dark:bg-[#242424] text-blue-900 dark:text-[rgba(255,255,255,0.87)] p-4 md:p-8 flex flex-col transition-colors duration-300 relative
+      `}>
+        {/* Back to Dashboard button for mobile - only shown when a component is active */}
+        {activeComponent && (
+          <button 
+            className="md:hidden bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded mb-4 self-start"
+            onClick={() => {
+              setActiveComponent(null); 
+              setPinnedWeatherData(null); 
+              setIsFetchingLiveWeather(false); 
+              justSetByViewWeatherClickRef.current = false; 
+              setShowContentViewOnMobile(false); // Hide content view, show sidebar
+            }}
+          >
+            &larr; Back to Dashboard
+          </button>
+        )}
         {/* Main dynamic content area - takes up available space */}
         <div className="flex-grow flex flex-col items-center justify-start pt-8 overflow-y-auto"> {/* MODIFIED: justify-start, pt-8, overflow-y-auto */}
           {isFetchingLiveWeather && <p className="text-lg px-4">Fetching your location and weather...</p>}
@@ -318,6 +379,56 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
               </div>
             </div>
           )}
+          {!isFetchingLiveWeather && activeComponent === "info" && (
+            <div className="text-justify p-4 w-full max-w-3xl mx-auto">
+              <h2 className="text-3xl font-bold mb-8 text-center text-blue-700 dark:text-blue-300">App Information & Tutorial</h2>
+
+              <div className="space-y-6">
+                <section>
+                  <h3 className="text-2xl font-semibold mb-2 text-gray-800 dark:text-gray-200">1. View Weather</h3>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    The <strong>View Weather</strong> section allows you to see the current weather conditions and a forecast for your current location by default. 
+                    You can also pin a new location on the map (accessed via the Location tab that appears) to get weather details for a specific area. 
+                    This is useful for checking weather in areas you plan to visit or are concerned about.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-2xl font-semibold mb-2 text-gray-800 dark:text-gray-200">2. View Full Map</h3>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    The <strong>View Full Map</strong> section provides an interactive map where you can see all reported emergencies and weather pins. 
+                    It gives a comprehensive geographical overview of ongoing events and weather alerts. You can pan, zoom, and click on markers for more details.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-2xl font-semibold mb-2 text-gray-800 dark:text-gray-200">3. View Emergencies</h3>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    In <strong>View Emergencies</strong>, you can see a list of all currently active reported emergencies. 
+                    If you are registered and logged in, you can also report a new emergency by clicking the "Add Emergency" button. This will take you to a map where you can pin the location of the emergency and provide details like type, severity, and a description.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-2xl font-semibold mb-2 text-gray-800 dark:text-gray-200">4. Account</h3>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    The <strong>Account</strong> section (available if you are registered and logged in) allows you to manage your profile settings. 
+                    Here, you can update your username, email, password, and manage preferences such as enabling or disabling email notifications for reported emergencies.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-2xl font-semibold mb-2 text-gray-800 dark:text-gray-200">General Flow:</h3>
+                  <ol className="list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-300">
+                    <li><strong>Check Weather:</strong> Start by checking the weather for your current location or a specific area.</li>
+                    <li><strong>View Map:</strong> Use the Full Map to get a broader understanding of weather patterns and reported incidents.</li>
+                    <li><strong>Report/View Emergencies:</strong> If you encounter an emergency (like floods, fires, earthquakes), report it. You can also view emergencies reported by others.</li>
+                    <li><strong>Manage Account:</strong> Keep your account details up-to-date and configure your notification preferences.</li>
+                  </ol>
+                </section>
+              </div>
+            </div>
+          )}
           {!isFetchingLiveWeather && activeComponent === "weather" && <Weather initialData={pinnedWeatherData} clearInitialData={handleClearPinnedData} onSelectLocation={(item, context) => showLocation(item, context)} />}
           {!isFetchingLiveWeather && activeComponent === "location" && 
             <Location 
@@ -330,6 +441,7 @@ export default function Dashboard({ isRegistered, setIsRegistered, loggedInUser 
           }
           {!isFetchingLiveWeather && activeComponent === "emergency" && 
             <Emergency 
+              isAdmin={isAdmin} // <-- PASS isAdmin prop
               onSelectEmergency={(item, context) => showLocation(item, context)} 
               isRegistered={isRegistered} 
               navigate={navigate} 

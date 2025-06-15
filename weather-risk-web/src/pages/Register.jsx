@@ -1,5 +1,5 @@
 // filepath: c:\Users\dropt\.vscode\mobileweatherresponse\weather-risk-web\src\pages\Location.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // Added useEffect
 import { useNavigate, Link } from "react-router-dom"; // Import Link
 import FeaturesSlideshow from '../components/FeaturesSlideshow'; // Import the slideshow component
 import { supabase } from "../supabase"; // adjust path if needed
@@ -11,9 +11,30 @@ export default function Register({ onRegister }) { // Added onRegister prop
   const [username, setUsername] = useState(""); // Added username state
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
+  const adminEmail = "seiaweatherapp@gmail.com"; // Define admin email
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.ctrlKey && event.altKey && event.key === 'a') {
+        event.preventDefault();
+        navigate('/devlogin');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [navigate]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
+
+    if (email.toLowerCase() === adminEmail) {
+      setMessage(`Registration with ${adminEmail} is not allowed.`);
+      return;
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -42,16 +63,16 @@ export default function Register({ onRegister }) { // Added onRegister prop
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Column - Registration Form */}
-      <div className="w-1/3 bg-gray-100 flex items-center justify-center p-8">
-        <div className="bg-white p-8 rounded shadow-md w-full max-w-sm">
+    <div className="min-h-screen flex flex-col md:flex-row"> {/* Changed to flex-col on mobile */}
+      {/* Left Column - Registration Form - Full width on mobile, 1/3 on md and up */}
+      <div className="w-full md:w-1/3 bg-gray-100 flex items-center justify-center p-4 md:p-8 order-2 md:order-1"> {/* Added p-4 for mobile, order for mobile layout */}
+        <div className="bg-white p-6 md:p-8 rounded shadow-md w-full max-w-md"> {/* Increased max-w slightly, adjusted padding */}
           <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Register</h1>
-          <form onSubmit={handleRegister} className="space-y-4 flex flex-col items-center"> {/* Added flex flex-col items-center for button centering */}
+          <form onSubmit={handleRegister} className="space-y-4 flex flex-col items-center">
             <input
               type="text" // Added username input
               placeholder="Username"
-              className="w-full p-2 rounded bg-gray-800"
+              className="w-full p-3 rounded bg-gray-800 text-white border border-gray-700 focus:ring-green-500 focus:border-green-500" // Increased padding, added border, changed focus color
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -59,7 +80,7 @@ export default function Register({ onRegister }) { // Added onRegister prop
             <input
               type="email"
               placeholder="Email"
-              className="w-full p-2 rounded bg-gray-800"
+              className="w-full p-3 rounded bg-gray-800 text-white border border-gray-700 focus:ring-green-500 focus:border-green-500" // Increased padding, added border, changed focus color
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -67,14 +88,14 @@ export default function Register({ onRegister }) { // Added onRegister prop
             <input
               type="password"
               placeholder="Password"
-              className="w-full p-2 rounded bg-gray-800"
+              className="w-full p-3 rounded bg-gray-800 text-white border border-gray-700 focus:ring-green-500 focus:border-green-500" // Increased padding, added border, changed focus color
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
             <button
               type="submit"
-              className="bg-green-600 px-4 py-2 rounded hover:bg-green-700 w-full" // Added w-full to make button full width if desired, or remove for auto width based on content
+              className="bg-green-600 px-4 py-3 rounded hover:bg-green-700 w-full text-white text-lg" // Increased padding and text size
             >
               Register
             </button>
@@ -125,8 +146,8 @@ export default function Register({ onRegister }) { // Added onRegister prop
         </div>
       </div>
 
-      {/* Right Column - Feature Slideshow */}
-      <div className="w-2/3 relative overflow-hidden">
+      {/* Right Column - Feature Slideshow - Hidden on mobile, 2/3 on md and up */}
+      <div className="w-full md:w-2/3 relative overflow-hidden hidden md:block order-1 md:order-2"> {/* Hidden on mobile, order for mobile layout */}
         <FeaturesSlideshow />
       </div>
     </div>

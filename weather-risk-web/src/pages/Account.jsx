@@ -1,22 +1,21 @@
 // filepath: c:\Users\dropt\.vscode\mobileweatherresponse\weather-risk-web\src\pages\Account.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { supabase } from "../supabase"; // Adjust path if needed
 
-// Receive theme, setTheme, and loggedInUser as props
-export default function Account({ theme, setTheme, loggedInUser }) {
+// Receive loggedInUser and isAdmin as props
+export default function Account({ loggedInUser, isAdmin }) {
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [frequentLocationsData, setFrequentLocationsData] = useState([]); // Initialize as empty
-  // Remove mock email generation, fetch from Supabase or use props
+  const [frequentLocationsData, setFrequentLocationsData] = useState([]);
   const [newEmail, setNewEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [message, setMessage] = useState('');
-  const [userInfo, setUserInfo] = useState({ email: "", username: "" }); // Initialize with empty strings
-  const [emailPromptsActive, setEmailPromptsActive] = useState(false); // Will be loaded from localStorage
+  const [userInfo, setUserInfo] = useState({ email: "", username: "" });
+  const [emailPromptsActive, setEmailPromptsActive] = useState(false);
   const [user, setUser] = useState(null);
 
   // State for the new statistics
@@ -26,6 +25,7 @@ export default function Account({ theme, setTheme, loggedInUser }) {
   const EMERGENCY_PINS_STORAGE_KEY = 'fullMapEmergencyPins';
   const PREDEFINED_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d0ed57', '#ff8042', '#00C49F', '#FFBB28', '#FF8042'];
 
+  const ADMIN_PROMPT_EMAIL_STORAGE_KEY = 'adminPromptEmail'; // New key for admin's prompt email
   const EMAIL_PROMPTS_STORAGE_KEY = 'emailPromptsActive';
   const USER_EMAIL_STORAGE_KEY = 'userEmail'; // Key for storing user email
 
@@ -39,43 +39,43 @@ export default function Account({ theme, setTheme, loggedInUser }) {
       }
       setUser(currentUser);
       if (currentUser) {
-        const userEmail = currentUser.email || '';
-        const userName = currentUser.user_metadata?.username || loggedInUser || '';
+        const supabaseUserEmail = currentUser.email || '';
+        const supabaseUsername = currentUser.user_metadata?.username || loggedInUser || '';
+
         setUserInfo({
-          email: userEmail,
-          username: userName
+          email: supabaseUserEmail, // Store Supabase email for display if needed for non-admins
+          username: supabaseUsername
         });
-        setNewUsername(userName);
-        setNewEmail(userEmail);
 
-        // Store email in localStorage
-        if (userEmail) {
-          localStorage.setItem(USER_EMAIL_STORAGE_KEY, userEmail);
-        }
-
-        // Load email prompt preference
-        const storedPreference = localStorage.getItem(EMAIL_PROMPTS_STORAGE_KEY);
-        if (storedPreference !== null) {
-          setEmailPromptsActive(JSON.parse(storedPreference));
+        if (isAdmin && loggedInUser === 'admin1') {
+          setNewUsername('admin1'); // Admin username is fixed, field hidden
+          const storedAdminPromptEmail = localStorage.getItem(ADMIN_PROMPT_EMAIL_STORAGE_KEY);
+          if (storedAdminPromptEmail) {
+            setNewEmail(storedAdminPromptEmail); // Load admin's prompt email if already set
+          }
+          // Admin email prompts active status is loaded from localStorage, potentially set by confirm button
+          const adminPrompts = localStorage.getItem(EMAIL_PROMPTS_STORAGE_KEY);
+          setEmailPromptsActive(adminPrompts === 'true');
+        } else {
+          // For regular users
+          setNewUsername(supabaseUsername);
+          setNewEmail(supabaseUserEmail);
+          const storedPreference = localStorage.getItem(EMAIL_PROMPTS_STORAGE_KEY);
+          if (storedPreference !== null) {
+            setEmailPromptsActive(JSON.parse(storedPreference));
+          }
+          if (supabaseUserEmail) {
+            localStorage.setItem(USER_EMAIL_STORAGE_KEY, supabaseUserEmail);
+          }
         }
       }
     };
     getUserData();
-  }, [loggedInUser]); // Add loggedInUser as a dependency
+  }, [loggedInUser, isAdmin]); // Add isAdmin as a dependency
 
   // REMOVE MOCK DATA DEFINITIONS
   // const emergenciesCalledData = [...]; 
   // const emergencyLocationsPinnedData = [...];
-
-  const handleThemeChange = (newTheme) => {
-    // Only call setTheme if the new theme is different from the current theme
-    if (theme !== newTheme) {
-      setTheme(newTheme);
-      console.log("Theme changed to:", newTheme);
-    } else {
-      console.log("Theme is already:", newTheme);
-    }
-  };
 
   const loadFrequentLocationsChartData = () => {
     try {
@@ -240,13 +240,13 @@ export default function Account({ theme, setTheme, loggedInUser }) {
 
 
   const handleSaveChanges = async () => {
-    setMessage(''); // Clear previous messages
+    setMessage('');
     let usernameUpdated = false;
-    let emailUpdated = false;
+    let emailUpdated = false; // This refers to Supabase auth email
     let passwordChanged = false;
 
-    // Update Username
-    if (newUsername && newUsername !== userInfo.username) {
+    // Update Username - only if not admin (admin username is hidden and fixed)
+    if (!isAdmin && newUsername && newUsername !== userInfo.username) {
       const { error } = await supabase.auth.updateUser({
         data: { username: newUsername }
       });
@@ -254,30 +254,23 @@ export default function Account({ theme, setTheme, loggedInUser }) {
         setMessage(prev => prev + `Error updating username: ${error.message}\n`);
       } else {
         setUserInfo(prev => ({ ...prev, username: newUsername }));
-        // Consider calling a prop function to update App.jsx's loggedInUser state
         usernameUpdated = true;
       }
     }
 
-    // Update Email
-    if (newEmail && newEmail !== userInfo.email) {
+    // Update Supabase Auth Email - only if not admin
+    // Admin uses a separate mechanism for their prompt email
+    if (!isAdmin && newEmail && newEmail !== userInfo.email) {
       const { error } = await supabase.auth.updateUser({ email: newEmail });
       if (error) {
-        setMessage(prev => prev + `Error updating email: ${error.message}\n`);
+        setMessage(prev => prev + `Error updating Supabase email: ${error.message}\n`);
       } else {
-        // Email update requires confirmation. The user object's email won't change immediately.
-        emailUpdated = true;
+        emailUpdated = true; // Indicates Supabase email update initiated
       }
     }
 
-    // Update Password
+    // Update Password (available for all, including admin)
     if (newPassword) {
-      if (!currentPassword && !(await supabase.auth.getSession())?.data.session?.user) {
-          // This check is a bit simplified. Ideally, you'd ensure the user has recently reauthenticated
-          // if Supabase requires it for password changes without the current password.
-          // However, supabase.auth.updateUser({ password: newPassword }) should handle this.
-          // If current password is required by your setup/rules, you'd check for currentPassword here.
-      }
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) {
         setMessage(prev => prev + `Error updating password: ${error.message}\n`);
@@ -290,17 +283,32 @@ export default function Account({ theme, setTheme, loggedInUser }) {
 
     let successMessage = "";
     if (usernameUpdated) successMessage += "Username updated. ";
-    if (emailUpdated) successMessage += "Email update initiated (check new email for confirmation). ";
+    if (emailUpdated) successMessage += "Supabase email update initiated (check new email for confirmation). ";
     if (passwordChanged) successMessage += "Password updated. ";
 
     if (successMessage && !message.includes("Error")) {
       setMessage(successMessage.trim());
     } else if (!usernameUpdated && !emailUpdated && !passwordChanged && !message) {
-      setMessage("No changes were made.");
+        // Avoid "No changes made" if only admin prompt email was potentially changed by its own button
+        if (!isAdmin) setMessage("No changes were made to username, email, or password.");
+        else if (isAdmin && !passwordChanged) setMessage("No changes were made to password.")
     }
   };
 
+  const handleConfirmAdminPromptEmail = () => {
+    if (!newEmail.trim()) {
+      setMessage("Admin prompt email cannot be empty.");
+      return;
+    }
+    localStorage.setItem(ADMIN_PROMPT_EMAIL_STORAGE_KEY, newEmail);
+    localStorage.setItem(EMAIL_PROMPTS_STORAGE_KEY, JSON.stringify(true)); // Activate prompts for admin
+    setEmailPromptsActive(true);
+    setMessage(`Admin email for prompts confirmed: ${newEmail}. Prompts activated.`);
+  };
+
   const toggleEmailPrompts = () => {
+    // This function is for regular users only
+    if (isAdmin) return;
     const newPreference = !emailPromptsActive;
     setEmailPromptsActive(newPreference);
     localStorage.setItem(EMAIL_PROMPTS_STORAGE_KEY, JSON.stringify(newPreference));
@@ -311,17 +319,15 @@ export default function Account({ theme, setTheme, loggedInUser }) {
     setShowAnalytics(false);
   };
 
-  // Define styles based on the theme prop
-  const cardBg = theme === 'light' ? "bg-white" : "bg-gray-800";
-  const textColor = theme === 'light' ? "text-blue-950" : "text-gray-100";
-  const secondaryTextColor = theme === 'light' ? "text-blue-800" : "text-gray-300";
-  const borderColor = theme === 'light' ? "border-blue-200" : "border-gray-700";
-  const inputBg = theme === 'light' ? "bg-blue-100" : "bg-gray-700"; // Ensure this is distinct enough
-  const inputBorder = theme === 'light' ? "border-blue-300" : "border-gray-600";
-  const buttonTextColor = theme === 'light' ? "text-blue-900" : "text-white";
-  const backButtonBg = theme === 'light' ? "bg-blue-200 text-blue-800 hover:bg-blue-300" : "bg-gray-600 text-white hover:bg-gray-500";
-  const inactiveThemeButtonBg = theme === 'light' ? "bg-blue-100 hover:bg-blue-200" : "bg-gray-600 hover:bg-gray-500";
-  const activeThemeButtonBg = "bg-blue-500 text-white";
+  // Define styles statically (defaulting to dark theme values)
+  const cardBg = "bg-gray-800";
+  const textColor = "text-gray-100";
+  const secondaryTextColor = "text-gray-300";
+  const borderColor = "border-gray-700";
+  const inputBg = "bg-gray-700"; 
+  const inputBorder = "border-gray-600";
+  const backButtonBg = "bg-gray-600 text-white hover:bg-gray-500";
+  // REMOVED: buttonTextColor, inactiveThemeButtonBg, activeThemeButtonBg
 
   // Email Prompt Button Styles
   const activePromptButton = "bg-green-500 text-white px-5 py-2 rounded hover:bg-green-600";
@@ -370,9 +376,11 @@ export default function Account({ theme, setTheme, loggedInUser }) {
           <h2 className={`text-2xl font-semibold mb-4 border-b ${borderColor} pb-2 ${textColor}`}>Session Information</h2>
           {user ? (
             <div>
-              <p className={`${secondaryTextColor} mb-1`}>Email: {user.email}</p>
+              {/* For admin, display their fixed username. For others, display Supabase username. */}
+              <p className={`${secondaryTextColor} mb-1`}>Username: {isAdmin && loggedInUser === 'admin1' ? 'admin1' : (user.user_metadata?.username || userInfo.username || 'Not set')}</p>
+              {/* Display Supabase auth email for non-admins. For admin, this section might not show their prompt email. */}
+              {!isAdmin && <p className={`${secondaryTextColor} mb-1`}>Registered Email: {user.email}</p>}
               <p className={`${secondaryTextColor} mb-1`}>User ID: {user.id}</p>
-              <p className={`${secondaryTextColor} mb-1`}>Username: {user.user_metadata?.username || userInfo.username || 'Not set'}</p>
             </div>
           ) : (
             <p className={`${secondaryTextColor}`}>Loading user info...</p>
@@ -387,17 +395,35 @@ export default function Account({ theme, setTheme, loggedInUser }) {
         {/* Edit Account Information Section */}
         <div className={`${cardBg} shadow-lg rounded-lg p-6 mb-8`}>
           <h2 className={`text-2xl font-semibold mb-4 border-b ${borderColor} pb-2 ${textColor}`}>Edit Information</h2>
+          
           <div className="space-y-4">
+            {/* Username field hidden for admin */} 
+            {!isAdmin && (
+              <div>
+                <label htmlFor="newUsername" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>Username</label>
+                <input type="text" id="newUsername" name="newUsername" value={newUsername} onChange={handleInputChange}
+                       className={`w-full p-2 border rounded ${inputBg} ${textColor} ${inputBorder}`} />
+              </div>
+            )}
+            
+            {/* Email field: For admin, it's for prompt email. For users, it's Supabase auth email. */}
             <div>
-              <label htmlFor="newUsername" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>Username</label>
-              <input type="text" id="newUsername" name="newUsername" value={newUsername} onChange={handleInputChange}
+              <label htmlFor="newEmail" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>
+                {isAdmin ? "Admin Email for Prompts" : "Email Address"}
+              </label>
+              <input type="email" id="newEmail" name="newEmail" value={newEmail} onChange={handleInputChange} 
+                     placeholder={isAdmin ? "Enter email for admin alerts" : "Enter new email"}
                      className={`w-full p-2 border rounded ${inputBg} ${textColor} ${inputBorder}`} />
             </div>
-            <div>
-              <label htmlFor="newEmail" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>Email Address</label>
-              <input type="email" id="newEmail" name="newEmail" value={newEmail} onChange={handleInputChange}
-                     className={`w-full p-2 border rounded ${inputBg} ${textColor} ${inputBorder}`} />
-            </div>
+
+            {/* Admin-specific button to confirm prompt email */} 
+            {isAdmin && (
+              <button onClick={handleConfirmAdminPromptEmail}
+                      className="bg-orange-500 text-white px-5 py-2 rounded hover:bg-orange-600 w-full mt-2">
+                Confirm Admin Email for Prompts
+              </button>
+            )}
+
             <div>
               <label htmlFor="currentPassword" className={`block text-sm font-medium mb-1 ${secondaryTextColor}`}>Current Password (needed for password change)</label>
               <input type="password" id="currentPassword" name="currentPassword" placeholder="Enter current password to change"
@@ -410,48 +436,30 @@ export default function Account({ theme, setTheme, loggedInUser }) {
                      value={newPassword} onChange={handleInputChange}
                      className={`w-full p-2 border rounded ${inputBg} ${textColor} ${inputBorder}`} />
             </div>
-            <button onClick={handleSaveChanges}
+            <button onClick={handleSaveChanges} // This button now primarily handles password for admin, and all for users
                     className="bg-blue-500 text-white px-5 py-2 rounded hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700">
               Save Changes
             </button>
           </div>
         </div>
 
-        {/* Display Settings Section */}
-        <div className={`${cardBg} shadow-lg rounded-lg p-6 mb-8`}>
-          <h2 className={`text-2xl font-semibold mb-4 border-b ${borderColor} pb-2 ${textColor}`}>Display Settings</h2>
-          <div className="flex items-center space-x-4">
-            <span className={`text-sm font-medium ${secondaryTextColor}`}>Theme:</span>
-            <button
-              onClick={() => handleThemeChange('light')}
-              className={`px-3 py-1 rounded text-sm ${theme === 'light' ? activeThemeButtonBg : `${inactiveThemeButtonBg} ${buttonTextColor}`}`}
-            >
-              Light
-            </button>
-            <button
-              onClick={() => handleThemeChange('dark')}
-              className={`px-3 py-1 rounded text-sm ${theme === 'dark' ? activeThemeButtonBg : `${inactiveThemeButtonBg} ${buttonTextColor}`}`}
-            >
-              Dark
-            </button>
+        {/* Email Prompt Section - Hidden for admin, shown for regular users */} 
+        {!isAdmin && (
+          <div className={`${cardBg} shadow-lg rounded-lg p-6 mb-8`}>
+            <h2 className={`text-2xl font-semibold mb-4 border-b ${borderColor} pb-2 ${textColor}`}>Email Prompt Settings</h2>
+            <div className="flex items-center space-x-4">
+              <span className={`text-sm font-medium ${secondaryTextColor}`}>Registered Email for Prompts: {userInfo.email}</span>
+            </div>
+            <div className="flex items-center space-x-4 mt-4">
+              <button
+                onClick={toggleEmailPrompts}
+                className={emailPromptsActive ? activePromptButton : inactivePromptButton}
+              >
+                {emailPromptsActive ? 'Deactivate Email Prompts' : 'Activate Email Prompts'}
+              </button>
+            </div>
           </div>
-        </div>
-
-        {/* Email Prompt Section */}
-        <div className={`${cardBg} shadow-lg rounded-lg p-6 mb-8`}>
-          <h2 className={`text-2xl font-semibold mb-4 border-b ${borderColor} pb-2 ${textColor}`}>Email Prompt</h2>
-          <div className="flex items-center space-x-4">
-            <span className={`text-sm font-medium ${secondaryTextColor}`}>Email: {userInfo.email}</span>
-          </div>
-          <div className="flex items-center space-x-4 mt-4">
-            <button
-              onClick={toggleEmailPrompts}
-              className={emailPromptsActive ? activePromptButton : inactivePromptButton}
-            >
-              {emailPromptsActive ? 'Deactivate Email Prompts' : 'Activate Email Prompts'}
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* Analytics Section */}
         <div className={`${cardBg} shadow-lg rounded-lg p-6`}>

@@ -160,33 +160,32 @@ export default function Weather({ initialData, clearInitialData, onSelectLocatio
   // ... existing rendering logic ...
   // Ensure the rendering logic below uses currentLocationName, weather, hourly, loading, error states.
   return (
-    <div className="w-full relative pb-16">
-      <h2 className="text-3xl font-bold text-white mb-6 text-center">
+    <div className="w-full relative pb-20 p-4 md:p-0"> {/* Changed pb-16 to pb-20 for more space */}
+      <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 md:mb-6 text-center">
         Weather Forecast
       </h2>
-      <div className="text-center text-gray-400 mb-4">
+      <div className="text-center text-gray-400 mb-4 text-sm md:text-base">
         <span>Location: {currentLocationName}</span>
       </div>
       {loading && <p className="text-gray-300 text-center">Loading...</p>}
       {error && <p className="text-red-400 text-center">{error}</p>}
       {weather ? (
-        <div className="space-y-4 text-lg">
-          <div className="flex justify-between">
+        <div className="space-y-3 md:space-y-4 text-base md:text-lg">
+          <div className="flex flex-col sm:flex-row sm:justify-between">
             <span className="font-semibold text-gray-300">Temperature:</span>
             <span className="text-gray-100">{weather.temperature}°C (Typical: {TYPICAL_TEMP_PH})</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col sm:flex-row sm:justify-between">
             <span className="font-semibold text-gray-300">Wind Speed:</span>
             <span className="text-gray-100">{weather.windspeed} km/h (Typical: {TYPICAL_WIND_SPEED_PH})</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col sm:flex-row sm:justify-between">
             <span className="font-semibold text-gray-300">Condition:</span>
             <span className="text-gray-100">{getWeatherDescription(weather.weathercode)}</span>
           </div>
           {hourly && hourly.precipitation_probability && hourly.precipitation_probability.length > 0 && (
-            <div className="flex justify-between">
+            <div className="flex flex-col sm:flex-row sm:justify-between">
               <span className="font-semibold text-gray-300">Precipitation Chance:</span>
-              {/* Assuming the first entry in hourly.precipitation_probability corresponds to the current or very near forecast */}
               <span className="text-gray-100">{hourly.precipitation_probability[0]}%</span>
             </div>
           )}
@@ -195,16 +194,16 @@ export default function Weather({ initialData, clearInitialData, onSelectLocatio
         !loading && <p className="text-gray-300 text-center">No current weather data available.</p>
       )}
       {hourly && hourly.time && hourly.temperature_2m && (
-        <div className="mt-6">
+        <div className="mt-4 md:mt-6">
           <button 
             onClick={() => setIsHourlyExpanded(!isHourlyExpanded)}
-            className="font-semibold text-lg text-white mb-2 w-full text-left focus:outline-none flex justify-between items-center"
+            className="font-semibold text-base md:text-lg text-white mb-2 w-full text-left focus:outline-none flex justify-between items-center"
           >
             <span>Hourly Temperature (next 24h)</span>
             <span>{isHourlyExpanded ? 'Hide' : 'Show'}</span>
           </button>
           {isHourlyExpanded && (
-            <ul className="text-sm max-h-48 overflow-y-auto bg-gray-700 p-2 rounded">
+            <ul className="text-xs md:text-sm max-h-40 md:max-h-48 overflow-y-auto bg-gray-700 p-2 rounded">
               {hourly.time.slice(0, 24).map((t, i) => (
                 <li key={t + i} className="flex justify-between py-1 border-b border-gray-600 last:border-b-0">
                   <span className="text-gray-300">{new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}:</span>
@@ -218,39 +217,38 @@ export default function Weather({ initialData, clearInitialData, onSelectLocatio
 
       {/* Daily Forecast Section */}
       {initialData && initialData.weatherData && initialData.weatherData.daily && (
-        <div className="mt-6">
+        <div className="mt-4 md:mt-6">
           <button 
             onClick={() => setIsDailyExpanded(!isDailyExpanded)}
-            className="font-semibold text-lg text-white mb-2 w-full text-left focus:outline-none flex justify-between items-center"
+            className="font-semibold text-base md:text-lg text-white mb-2 w-full text-left focus:outline-none flex justify-between items-center"
           >
             <span>Daily Forecast (next {isDailyExpanded ? '7' : '3'} days)</span>
             <span>{isDailyExpanded ? 'Show Less' : 'Show More'}</span>
           </button>
-          { (
-            <ul className="text-sm bg-gray-700 p-2 rounded space-y-2">
-              {initialData.weatherData.daily.time.slice(0, isDailyExpanded ? 7 : 3).map((dateString, i) => {
-                const date = new Date(dateString);
-                const dayName = date.toLocaleDateString([], { weekday: 'short' });
-                const condition = getWeatherDescription(initialData.weatherData.daily.weather_code[i]);
-                const maxTemp = initialData.weatherData.daily.temperature_2m_max[i];
-                const minTemp = initialData.weatherData.daily.temperature_2m_min[i];
-                const precipSum = initialData.weatherData.daily.precipitation_sum ? initialData.weatherData.daily.precipitation_sum[i] : null;
+          {/* Always render the list for daily forecast, but control items shown with slice based on isDailyExpanded */}
+          <ul className="text-xs md:text-sm bg-gray-700 p-2 rounded space-y-2">
+            {initialData.weatherData.daily.time.slice(0, isDailyExpanded ? 7 : 3).map((dateString, i) => {
+              const date = new Date(dateString);
+              const dayName = date.toLocaleDateString([], { weekday: 'short' });
+              const condition = getWeatherDescription(initialData.weatherData.daily.weather_code[i]);
+              const maxTemp = initialData.weatherData.daily.temperature_2m_max[i];
+              const minTemp = initialData.weatherData.daily.temperature_2m_min[i];
+              const precipSum = initialData.weatherData.daily.precipitation_sum ? initialData.weatherData.daily.precipitation_sum[i] : null;
 
-                return (
-                  <li key={dateString} className="p-2 border-b border-gray-600 last:border-b-0">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-semibold text-gray-200">{dayName}, {date.toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                      <span className="text-gray-300 text-xs">{condition}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-300">Temp: {minTemp}°C / {maxTemp}°C</span>
-                      {precipSum !== null && <span className="text-gray-300">Rain: {precipSum}mm</span>}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+              return (
+                <li key={dateString} className="p-1 md:p-2 border-b border-gray-600 last:border-b-0">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-1">
+                    <span className="font-semibold text-gray-200">{dayName}, {date.toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                    <span className="text-gray-300 text-xs sm:text-right">{condition}</span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:justify-between text-xs">
+                    <span className="text-gray-300">Temp: {minTemp}°C / {maxTemp}°C</span>
+                    {precipSum !== null && <span className="text-gray-300 sm:text-right">Rain: {precipSum}mm</span>}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 
@@ -262,7 +260,7 @@ export default function Weather({ initialData, clearInitialData, onSelectLocatio
             onSelectLocation(null, "weather");
           }
         }}
-        className="absolute bottom-0 right-0 bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 text-sm mt-4"
+        className="absolute bottom-4 right-4 md:bottom-0 md:right-0 bg-indigo-500 text-white px-3 py-2 md:px-4 md:py-2 rounded hover:bg-indigo-600 text-xs md:text-sm mt-4"
       >
         Select New Location
       </button>
