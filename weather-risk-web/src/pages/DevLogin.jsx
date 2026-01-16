@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase"; // Assuming supabase client might be used later
 
-export default function DevLogin({ setLoggedInUser, setIsAdmin }) {
+export default function DevLogin() {
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");

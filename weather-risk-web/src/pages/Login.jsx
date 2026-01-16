@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom"; // Import Link
 import { supabase } from "../supabase";
 import FeaturesSlideshow from '../components/FeaturesSlideshow'; // Import the slideshow component
 
-export default function Login({ onLogin }) { // Added onLogin prop
+export default function Login() { // Added onLogin prop
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");

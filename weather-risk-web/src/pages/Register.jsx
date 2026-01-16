@@ -5,7 +5,7 @@ import FeaturesSlideshow from '../components/FeaturesSlideshow'; // Import the s
 import { supabase } from "../supabase"; // adjust path if needed
 
 // Supabase-powered registration form
-export default function Register({ onRegister }) { // Added onRegister prop
+export default function Register() { // Added onRegister prop
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState(""); // Added username state

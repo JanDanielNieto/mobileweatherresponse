@@ -43,7 +43,7 @@ const defaultEmergencyIcon = L.icon({ // Fallback icon
 });
 
 
-export default function Location({ isRegistered, context, onWeatherLocationPin, onEmergencyPin, loggedInUser }) { // Removed onClearAllEmergencies
+export default function Location({ onEmergencyPin }) { // Removed onClearAllEmergencies
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [emergencyLat, setEmergencyLat] = useState(null);
   const [emergencyLng, setEmergencyLng] = useState(null);
@@ -58,17 +58,8 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
   const mapRef = useRef(null); // To store the map instance
   const [isPinning, setIsPinning] = useState(false); // To track pinning mode
   useEffect(() => {
-    if (!isRegistered) return;
-    if (mapRef.current && !isPinning) { // If map exists and not entering pinning mode, do nothing
-        // If context changes and we were pinning, reset
-        if (mapRef.current.getContainer().style.cursor === 'crosshair') {
-            mapRef.current.getContainer().style.cursor = '';
-        }
+    if (mapRef.current) { // If map exists, do nothing
         return;
-    }
-    if (mapRef.current && isPinning) { // If map exists and we are pinning
-        mapRef.current.getContainer().style.cursor = 'crosshair';
-        return; // Don't reinitialize map
     }
 
     // Add a small delay to ensure DOM is ready and avoid race conditions
@@ -141,11 +132,11 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
         mapRef.current = null;
       }
     };
-  }, [isRegistered]); // Initial map setup effect
+  }, []); // Initial map setup effect
 
   // Effect for handling map clicks when pinning
   useEffect(() => {
-    if (!isRegistered || !isPinning || !mapRef.current) {
+    if (!isPinning || !mapRef.current) {
       if(mapRef.current && mapRef.current.getContainer() && mapRef.current.getContainer().style.cursor === 'crosshair') { // Added null check for getContainer
         mapRef.current.getContainer().style.cursor = ''; // Reset cursor if not pinning
       }
@@ -155,54 +146,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
     mapRef.current.getContainer().style.cursor = 'crosshair';
 
     const handleMapClick = async (e) => {
-      if (context === 'weather') {
-        const lat = e.latlng.lat;
-        const lng = e.latlng.lng;        try {
-          // 1. Reverse geocode to get location name
-          const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
-          const nominatimResp = await fetch(nominatimUrl, { 
-            headers: { 'User-Agent': 'weather-risk-web/1.0' } 
-          });
-          const nominatimData = await nominatimResp.json();
-          const locationName = nominatimData.display_name || `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
-
-          // 2. Fetch weather data from Open-Meteo
-          const meteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max&timezone=auto`;
-          const meteoResp = await fetch(meteoUrl);
-          const meteoData = await meteoResp.json();
-
-          // 3. Call onWeatherLocationPin with the data instead of navigating
-          if (onWeatherLocationPin) {
-            onWeatherLocationPin({
-              locationName,
-              lat,
-              lng,
-              weatherData: meteoData,
-              addressDetails: nominatimData.address // Pass the full address details
-            });
-          } else {
-            // Fallback or error if the handler isn't provided, though it should be by Dashboard
-            console.error('onWeatherLocationPin handler not provided to Location component');
-            // Optionally, navigate to /weather as a fallback if direct display isn't possible
-            navigate('/weather', {
-              state: {
-                locationName,
-                lat,
-                lng,
-                weatherData: meteoData
-              }
-            });
-          }        } catch (err) {
-          console.error('Failed to fetch location or weather data:', err);
-          alert('Failed to fetch location or weather data. Please try again.');
-        }        setIsPinning(false);
-        if (mapRef.current && mapRef.current.getContainer()) { // Check if mapRef.current and container exist
-          mapRef.current.getContainer().style.cursor = '';
-        }
-        return;
-      }
       // Emergency pin logic
-      if (context === 'addEmergency') {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
         try {
@@ -238,12 +182,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
         }
         // Do not reset pinning or cursor here, modal will handle it or cancel pinning will.
         return; // Return early as modal will handle the next steps
-      }
-      // Fallback for other contexts, if needed
-      alert(`Pinned for ${context} at ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`);
-      setIsPinning(false); // Exit pinning mode
-      mapRef.current.getContainer().style.cursor = ''; // Reset cursor
-    };
+      };
 
     mapRef.current.on('click', handleMapClick);
 
@@ -253,11 +192,10 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
         mapRef.current.getContainer().style.cursor = ''; // Ensure cursor is reset
       }
     };
-  }, [isRegistered, isPinning, context, mapRef, navigate, onWeatherLocationPin, onEmergencyPin]);
+  }, [isPinning, mapRef, navigate, onEmergencyPin]);
   
 
   const handlePinButtonClick = () => {
-    if (!isRegistered) return; // Should not happen if buttons are hidden, but good check
     setIsPinning(true);
     // Reset modal fields when starting a new pin action
     setEmergencyType('Flood');
@@ -300,7 +238,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
         fullAddress: fullAddress, 
         severity: emergencySeverity,
         details: emergencyDetails,
-        user: loggedInUser || (isRegistered ? 'Registered User' : 'Anonymous'),
+        user: 'Anonymous',
         lat: emergencyLat, // Still useful for mapping, just not primary in email
         lng: emergencyLng,   // Still useful for mapping, just not primary in email
       };
@@ -315,6 +253,22 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
         });
       }
 
+      // ---- ADDED: Save to frequent locations history for analytics ----
+      try {
+        const historyString = localStorage.getItem('frequentLocationsHistory');
+        let history = historyString ? JSON.parse(historyString) : [];
+        history.push({
+          city: emergencyCity,
+          fullLocationName: fullAddress,
+          timestamp: new Date().toISOString()
+        });
+        localStorage.setItem('frequentLocationsHistory', JSON.stringify(history));
+        console.log("[Location.jsx] Updated frequent locations history for analytics.");
+      } catch (error) {
+        console.error("Error updating localStorage for frequent locations:", error);
+      }
+      // ---- END ADDED ----
+
       // Save pin for FullMap.jsx
       try {
         const fullMapPinData = {
@@ -324,7 +278,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
           severity: emergencySeverity,
           description: emergencyDetails,
           city: emergencyCity, 
-          user: loggedInUser || (isRegistered ? 'Registered User' : 'Anonymous'),
+          user: 'Anonymous',
           timestamp: Date.now(),
           // Ensure all fields from emergencyDataForDashboard are here if needed by FullMap
           fullAddress: fullAddress, 
@@ -419,7 +373,6 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
       <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 text-center">
         Location Details
       </h2>
-      {isRegistered ? (
         <>
           {/* Map container: flex-grow to take available space, responsive height */}
           <div className="w-full flex-grow max-w-3xl h-[300px] sm:h-[400px] md:h-[500px] bg-gray-700 rounded-lg shadow-md mb-4"> 
@@ -492,15 +445,7 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
 
           {/* Buttons Area - Adjusted for better mobile layout */}
           <div className="w-full md:absolute md:bottom-4 md:right-4 z-[1000] flex flex-col sm:flex-row sm:justify-end space-y-2 sm:space-y-0 sm:space-x-2 mt-2 md:mt-0 px-4 md:px-0">
-            {!isPinning && context === 'weather' && (
-              <button
-                onClick={handlePinButtonClick}
-                className="bg-blue-500 text-white px-3 py-2 rounded shadow-lg hover:bg-blue-600 text-sm w-full sm:w-auto"
-              >
-                Pin Weather Location
-              </button>
-            )}
-            {!isPinning && (context === 'addEmergency' || context === 'viewEmergency') && (
+            {!isPinning && (
               <button
                 onClick={handlePinButtonClick}
                 className="bg-red-500 text-white px-3 py-2 rounded shadow-lg hover:bg-red-600 text-sm w-full sm:w-auto"
@@ -518,28 +463,9 @@ export default function Location({ isRegistered, context, onWeatherLocationPin, 
             )}
           </div>
           <p className="text-gray-300 text-xs md:text-sm text-center mt-2 md:absolute md:bottom-0 md:left-1/2 md:-translate-x-1/2 md:pb-2">
-            {isPinning ? `Click on the map to pin for ${context}.` : 'Select an action above to interact with the map.'}
+            {isPinning ? `Click on the map to pin an emergency.` : 'Select an action above to interact with the map.'}
           </p>
         </>
-      ) : (
-        <div className="text-center p-6 bg-gray-800 rounded-lg shadow-md w-full max-w-md mx-auto">
-          <p className="text-gray-300 text-lg mb-4">
-            Please log in or register to view location details and the map.
-          </p>
-          <button
-            onClick={() => navigate("/login")}
-            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 mr-2"
-          >
-            Login
-          </button>
-          <button
-            onClick={() => navigate("/register")}
-            className="bg-purple-500 text-white px-6 py-2 rounded hover:bg-purple-600 ml-2"
-          >
-            Register
-          </button>
-        </div>
-      )}
     </div>
   );
 }

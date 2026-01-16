@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { supabase } from "../supabase"; // Adjust path if needed
 
 // Receive loggedInUser and isAdmin as props
-export default function Account({ loggedInUser, isAdmin }) {
+export default function Account() {
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [frequentLocationsData, setFrequentLocationsData] = useState([]);

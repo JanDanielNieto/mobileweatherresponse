@@ -9,7 +9,7 @@ const EMAIL_PROMPTS_STORAGE_KEY = 'emailPromptsActive';
 // const USER_EMAIL_STORAGE_KEY = 'userEmail'; // No longer needed for sending to admin
 const ADMIN_PROMPT_EMAIL_STORAGE_KEY = 'adminPromptEmail'; // Key for admin's dedicated prompt email
 
-export default function Emergency({ isAdmin, onSelectEmergency, isRegistered, navigate, pinnedEmergency, onPinnedEmergencyConsumed, clearTrigger, onDevClearAllRequest }) { // Added isAdmin
+export default function Emergency({ onSelectEmergency, navigate, pinnedEmergency, onPinnedEmergencyConsumed, clearTrigger, onDevClearAllRequest }) { // Added isAdmin
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [emergencies, setEmergencies] = useState([]);
   const [isListExpanded, setIsListExpanded] = useState(false); // For collapsible list
@@ -84,7 +84,7 @@ export default function Emergency({ isAdmin, onSelectEmergency, isRegistered, na
 
       // Email alert logic
       try {
-        const reportingUserIsAdmin = isAdmin; // Prop indicating if the current user pinning the emergency is an admin
+        const reportingUserIsAdmin = false; // Prop indicating if the current user pinning the emergency is an admin
         let targetEmail = null;
         let sendEmail = false;
         let emailSubject = ``;
@@ -142,15 +142,11 @@ export default function Emergency({ isAdmin, onSelectEmergency, isRegistered, na
         onPinnedEmergencyConsumed();
       }
     }
-  }, [pinnedEmergency, onPinnedEmergencyConsumed, isAdmin]); // Added isAdmin to dependency array
+  }, [pinnedEmergency, onPinnedEmergencyConsumed]);
 
   const handleAddEmergencyClick = () => {
-    if (isRegistered) {
-      onSelectEmergency(null, 'addEmergency'); // Pass null for item, and 'addEmergency' context
-      setShowAuthPrompt(false);
-    } else {
-      setShowAuthPrompt(true);
-    }
+    onSelectEmergency(null, 'addEmergency'); // Pass null for item, and 'addEmergency' context
+    setShowAuthPrompt(false);
   };
 
   // Renamed and repurposed from handleShowDetail
@@ -231,18 +227,7 @@ export default function Emergency({ isAdmin, onSelectEmergency, isRegistered, na
               key={emergency.id}
               className="bg-gray-800 p-4 rounded-lg shadow-md relative group" // Added relative and group for X button positioning
             >
-              {isAdmin && (
-                <button
-                  onClick={(e) => { 
-                    e.stopPropagation(); // Prevent triggering handleViewOnMap
-                    handleDeleteOneEmergency(emergency.id); 
-                  }}
-                  className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white font-bold p-1 rounded-full text-xs w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Delete this emergency"
-                >
-                  X
-                </button>
-              )}
+              {/* Admin-only features are now hidden */}
               <div onClick={() => handleViewOnMap(emergency)} className="cursor-pointer"> {/* Made inner content clickable */}
                 <h3 className="text-xl font-semibold text-red-400 mb-1">
                   {emergency.type} - {emergency.area}
@@ -280,15 +265,7 @@ export default function Emergency({ isAdmin, onSelectEmergency, isRegistered, na
       {/* "Add Emergency" Button and Auth Prompt Area */}
       <div className="absolute bottom-0 right-0 p-4 flex flex-col items-end space-y-2">
         {/* Admin Clear All Button - Renders above Add Emergency button if admin and registered */}
-        {isAdmin && isRegistered && (
-          <button
-            onClick={handleDevClearAll} // Renamed to handleAdminClearAll or similar if preferred, but logic is fine
-            className="bg-yellow-500 text-black px-3 py-2 rounded shadow-lg hover:bg-yellow-600 text-sm mb-2"
-            title="Admin: Clear All Emergencies"
-          >
-            Clear All Emergencies (Admin)
-          </button>
-        )}
+        {/* Admin-only features are now hidden */}
 
         {!showAuthPrompt ? (
           <button
