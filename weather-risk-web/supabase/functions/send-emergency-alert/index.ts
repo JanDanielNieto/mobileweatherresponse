@@ -13,6 +13,24 @@ import { Resend } from 'npm:resend'
 // Add another secret, e.g., FROM_EMAIL with your verified sender email.
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') // e.g., 'alerts@yourdomain.com' or your verified personal email
+const ALLOWED_ORIGINS = new Set([
+  'https://mobileweatherresponse.vercel.app',
+  'http://localhost:5173',
+])
+
+const getCorsHeaders = (origin: string | null) => {
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  }
+
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin
+  }
+
+  return headers
+}
 
 if (!RESEND_API_KEY) {
   console.error('RESEND_API_KEY is not set in environment variables.');
@@ -26,15 +44,17 @@ const resend = new Resend(RESEND_API_KEY)
 console.log("send-emergency-alert function initialized.");
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req.headers.get('origin'))
+
   // Handle CORS preflight OPTIONS request
   if (req.method === 'OPTIONS') {
+    if (!corsHeaders['Access-Control-Allow-Origin']) {
+      return new Response(null, { status: 403 })
+    }
+
     return new Response(null, {
       status: 204, // No Content
-      headers: {
-        'Access-Control-Allow-Origin': '*', // Be more specific in production (e.g., your web app's URL)
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
+      headers: corsHeaders,
     });
   }
 
@@ -42,7 +62,7 @@ serve(async (req: Request) => {
     console.log(`Method Not Allowed: ${req.method}`);
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 
@@ -55,21 +75,21 @@ serve(async (req: Request) => {
       console.error('recipientEmail is required');
       return new Response(JSON.stringify({ error: 'recipientEmail is required' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
     if (!emergencyDetails) {
       console.error('emergencyDetails are required');
       return new Response(JSON.stringify({ error: 'emergencyDetails are required' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
     if (!RESEND_API_KEY || !FROM_EMAIL) {
      console.error('Email service not configured on server: Missing RESEND_API_KEY or FROM_EMAIL.');
      return new Response(JSON.stringify({ error: 'Email service not configured on server.' }), {
        status: 500,
-       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
      });
     }
 
@@ -102,14 +122,14 @@ serve(async (req: Request) => {
       console.error('Resend API Error:', JSON.stringify(error, null, 2));
       return new Response(JSON.stringify({ error: 'Failed to send email', details: error.message }), {
         status: 500, // Internal Server Error or specific error from Resend
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     console.log('Email sent successfully via Resend:', data);
     return new Response(JSON.stringify({ message: 'Email sent successfully', data }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
 
   } catch (e) {
@@ -117,7 +137,7 @@ serve(async (req: Request) => {
     // It's good practice to avoid sending detailed internal error messages to the client.
     return new Response(JSON.stringify({ error: 'Internal Server Error', details: e.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
