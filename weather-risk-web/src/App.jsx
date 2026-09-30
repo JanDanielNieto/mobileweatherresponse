@@ -12,20 +12,13 @@ import './css/index.css';
 
 function App() {
   const [emergencyData, setEmergencyData] = useState(null);
-  const [theme, setTheme] = useState(() => {
-    const savedTheme = localStorage.getItem('theme');
-    return savedTheme === 'light' ? 'light' : 'dark';
-  });
+  const theme = 'dark';
 
   useEffect(() => {
     const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+    root.classList.add('dark');
+    localStorage.removeItem('theme');
+  }, []);
 
   const themeClasses = theme === 'light'
     ? 'bg-blue-50 text-blue-950'
